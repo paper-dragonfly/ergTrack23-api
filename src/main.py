@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.schemas import PostWorkoutSchema, PostWorkoutSchema2
 from  src.classes import Response
+from src.ocr import hit_textract_api, extract_table_data
 
 app = FastAPI()
 
@@ -54,14 +55,14 @@ async def create_workout(
         byte_array = bytearray(ergImg.file.read())
         pil_image = Image.open(BytesIO(byte_array))
         pil_image.show()
+    
+    pdb.set_trace()
+    raw_textract_resp = hit_textract_api(byte_array)
+    print(extract_table_data(raw_textract_resp))
+
 
     return Response(body={'message':'successful post to workout', 'workoutinfo':workout_info})
 
-    # capture in formdata from front end 
-    # parse formdata and create bytearrary of image 
-    # send image bytes to textract 
-    # process response  
-    # return response 
 
 @app.post("/sandbox")
 async def create_sandbox(name: str = Form(...), age: str = Form(...), image: UploadFile = File(...)):
