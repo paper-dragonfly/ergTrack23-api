@@ -36,35 +36,15 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.post("/workout")
-async def create_workout(
-    entryMethod: str = Form(...),
-    workoutType: str = Form(...),
-    workoutLength: Optional[str] = Form(None),
-    customLength: Optional[str] = Form(None),
-    subWorkouts: Optional[str] = Form(None),
-    ergImg: Optional[UploadFile] = File(None),
+@app.post("/ergImage")
+async def create_extract_and_process_ergImage(
+    ergImg: UploadFile = File(...),
 ):
-    workout_info = {
-        "entry_method": entryMethod,
-        "workout_type": workoutType,
-        "workout_length": workoutLength,
-        "custom_length": customLength,
-        "sub_workouts": subWorkouts,
-    }
-    # pdb.set_trace()
-    if ergImg:
-        ocr_data = get_processed_ocr_data(ergImg)
-    else:
-        ocr_data = None
+    ocr_data = get_processed_ocr_data(ergImg)
+    # TODO: if successful -> use cabinet to save Image to cloudStorage
+    # TODO: will need to add image_hash to response
 
-    return Response(
-        body={
-            "message": "successful post to workout",
-            "workoutinfo": workout_info,
-            "ocrdata": ocr_data,
-        }
-    )
+    return Response(body=ocr_data)
 
 
 @app.post("/sandbox")

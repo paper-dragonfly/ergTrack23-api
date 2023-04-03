@@ -114,9 +114,9 @@ def clean_metadata(raw_meta: list) -> dict:
         meta_dict = {"wo_name": meta[0], "date": meta[1]}
     elif len(meta) >= 4:
         meta_dict = {
-            "wo_name": meta[0],
+            "workout_name": meta[0],
             "total_type": meta[1],
-            "date": meta[2],
+            "workout_date": meta[2],
             "total_val": meta[3],
         }
     return meta_dict
