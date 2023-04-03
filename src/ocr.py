@@ -124,12 +124,16 @@ def clean_metadata(raw_meta: list) -> dict:
 
 def process_raw_ocr(raw_response: dict):
     table_data = extract_table_data(raw_response)
+    print("table_data: ", table_data)
     table_data_clean = clean_table_data(table_data)
+    print("table_data_clean: ", table_data_clean)
     workout_data = compile_workout_data(table_data_clean)
+    print("workout_data: ", workout_data)
     workout_df = pd.DataFrame(workout_data)
     print(workout_df)
 
     raw_meta = extract_metadata(raw_response, table_data)
+    print("raw_meta: ", raw_meta)
     clean_meta = clean_metadata(raw_meta)
 
     # Print Pretty

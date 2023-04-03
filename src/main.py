@@ -1,5 +1,6 @@
 import pdb
 from http import HTTPStatus
+import json
 from io import BytesIO
 from PIL import Image
 from typing import Optional
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.schemas import PostWorkoutSchema, PostWorkoutSchema2
 from src.classes import Response
 from src.ocr import hit_textract_api, process_raw_ocr
+from src.utils import get_processed_ocr_data
 
 app = FastAPI()
 
@@ -44,23 +46,17 @@ async def create_workout(
     ergImg: Optional[UploadFile] = File(None),
 ):
     workout_info = {
-        "em": entryMethod,
-        "wot": workoutType,
-        "wol": workoutLength,
-        "cl": customLength,
-        "swo": subWorkouts,
+        "entry_method": entryMethod,
+        "workout_type": workoutType,
+        "workout_length": workoutLength,
+        "custom_length": customLength,
+        "sub_workouts": subWorkouts,
     }
-
-    ocr_data = None
+    # pdb.set_trace()
     if ergImg:
-        # convert bytes to byte array & open image
-        byte_array = bytearray(ergImg.file.read())
-        pil_image = Image.open(BytesIO(byte_array))
-        pil_image.show()
-        pdb.set_trace()
-        raw_textract_resp = hit_textract_api(byte_array)
-        # TODO: write raw ocr resp to rawocr.py for future reference
-        ocr_data = process_raw_ocr(raw_textract_resp)
+        ocr_data = get_processed_ocr_data(ergImg)
+    else:
+        ocr_data = None
 
     return Response(
         body={
