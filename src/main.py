@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.schemas import PostWorkoutSchema, PostWorkoutSchema2
+from src.schemas import PostWorkoutSchema
 from src.classes import Response
 from src.ocr import hit_textract_api, process_raw_ocr
 from src.utils import get_processed_ocr_data
@@ -37,14 +37,18 @@ async def root():
 
 
 @app.post("/ergImage")
-async def create_extract_and_process_ergImage(
-    ergImg: UploadFile = File(...),
-):
+async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     ocr_data = get_processed_ocr_data(ergImg)
     # TODO: if successful -> use cabinet to save Image to cloudStorage
     # TODO: will need to add image_hash to response
 
     return Response(body=ocr_data)
+
+
+@app.post("/workout")
+async def create_workout(workoutData: PostWorkoutSchema):
+    print(workoutData)
+    return Response(body={"message": "success  post to workout"})
 
 
 @app.post("/sandbox")
