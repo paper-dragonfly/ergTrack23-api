@@ -23,7 +23,7 @@ def extract_table_data(full_response: dict) -> List[dict]:
             word_ids[block["Id"]] = block["Text"]
         # create table_data
         elif block["BlockType"] == "CELL":
-            # skip cells that have no content - eg Heart Rate column when not HR data was collected
+            # only look at cells with content - eg some cells have no content like Heart Rate column when not HR data was collected
             if "Relationships" in block.keys():
                 cell_data = {"row": None, "col": None, "text": None}
                 cell_data["row"] = block["RowIndex"]
