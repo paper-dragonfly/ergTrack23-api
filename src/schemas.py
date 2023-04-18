@@ -15,3 +15,23 @@ class PostWorkoutSchema2(BaseModel):
     customLength: Optional[str] = (Form(None),)
     subWorkouts: Optional[str] = (Form(None),)
     ergImg: Optional[UploadFile] = File(None)
+
+
+## return schemas
+class CleanMetaReturn(BaseModel):
+    wo_name: str
+    total_type: Optional[str]
+    wo_date: str
+    total_val: Optional[str]
+
+
+class WorkoutDataReturn(BaseModel):
+    time: List[str]
+    meter: List[str]
+    split: List[str]
+    sr: List[str]
+
+
+class OcrDataReturn(BaseModel):
+    workout_meta: CleanMetaReturn
+    workout_data: WorkoutDataReturn

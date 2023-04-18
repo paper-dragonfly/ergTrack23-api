@@ -2,6 +2,7 @@ from typing import List, Dict
 import pandas as pd
 import boto3
 import pdb
+from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 
 client = boto3.client("textract")
 
@@ -90,7 +91,7 @@ def clean_table_data(table_data: List[dict]):
 
 
 # view workout data - visual only
-def compile_workout_data(wo_clean: List[dict]) -> Dict[str, List[str]]:
+def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
     col_head_row = wo_clean[0]["row"]
     wo_dict = {"time": [], "meter": [], "split": [], "sr": []}
     for cell in wo_clean:
@@ -125,7 +126,7 @@ def extract_metadata(word_index: dict, image_raw_response: dict) -> List[str]:
 
 
 # clean metadata
-def clean_metadata(raw_meta: list) -> dict:
+def clean_metadata(raw_meta: list) -> CleanMetaReturn:
     # Delete everything before wo_name
     meta = raw_meta
     try:
@@ -141,18 +142,18 @@ def clean_metadata(raw_meta: list) -> dict:
         except:
             pass
     if len(meta) == 2:
-        meta_dict = {"wo_name": meta[0], "date": meta[1]}
+        meta_dict = {"wo_name": meta[0], "wo_date": meta[1]}
     elif len(meta) >= 4:
         meta_dict = {
-            "workout_name": meta[0],
+            "wo_name": meta[0],
             "total_type": meta[1],
-            "workout_date": meta[2],
+            "wo_date": meta[2],
             "total_val": meta[3],
         }
     return meta_dict
 
 
-def process_raw_ocr(raw_response: dict):
+def process_raw_ocr(raw_response: dict) -> OcrDataReturn:
     word_index = create_word_index(raw_response)
     table_data = extract_table_data(raw_response, word_index)
     print("table_data: ", table_data)
