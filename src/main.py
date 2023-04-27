@@ -6,6 +6,7 @@ from PIL import Image
 from typing import Optional
 import time
 import yaml
+from datetime import datetime
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +66,9 @@ async def read_login(authorization: str = Header(...)):
     print("Auth val: ", authorization)
     try:
         # hack fix added delay - TODO find better  solution
-        time.sleep(0.1)
+        print(datetime.now())
+        time.sleep(5.0)
+        print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
         # token is valid
