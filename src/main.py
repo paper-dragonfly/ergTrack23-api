@@ -25,6 +25,7 @@ from src.utils import (
     get_user_id,
 )
 from src.database import UserTable, WorkoutLogTable
+from src.helper import process_outgoing_workouts
 
 app = FastAPI()
 
@@ -135,11 +136,30 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     return Response(body=ocr_data)
 
 
+@app.get("/workout")
+async def read_workout(authorization: str = Header(...)):
+    # pdb.set_trace()
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    with Session() as session:
+        try:
+            user_id = get_user_id(auth_uid, session)
+            workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
+            print("workouts retreived")
+            print(workouts)
+            workouts_processed: dict = process_outgoing_workouts(workouts)
+            print(workouts_processed)
+            return Response(body=workouts_processed)
+        except Exception as e:
+            return Response(status_code=500, error_message=e)
+
+
 @app.post("/workout")
 async def create_workout(
     workoutData: PostWorkoutSchema, authorization: str = Header(...)
 ):
-    pdb.set_trace()
+    # pdb.set_trace()
     # confirm data coming from valid user
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
