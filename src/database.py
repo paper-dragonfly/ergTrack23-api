@@ -50,7 +50,8 @@ class WorkoutLogTable(Base):
         return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, interval={self.interval}, image_hash={self.image_hash}, subworkouts={self.subworkouts})>"
 
 
-Base.metadata.create_all(engine)
+# Below:  uses SQLAlchemy directly to make tables, confuses aleembic. Don't use/
+# Base.metadata.create_all(engine)
 
 
 # class SubWorkoutTable(Base):
