@@ -3,7 +3,7 @@ from http import HTTPStatus
 import json
 from io import BytesIO
 from PIL import Image
-from typing import Optional
+from typing import Optional, List, Union
 import time
 import yaml
 from datetime import datetime
@@ -138,20 +138,21 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
 
 @app.get("/workout")
 async def read_workout(authorization: str = Header(...)):
-    # pdb.set_trace()
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
         return Response(status_code=401, error_message="Unauthorized Request")
     with Session() as session:
         try:
+            # pdb.set_trace()
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
             print(workouts)
-            workouts_processed: dict = process_outgoing_workouts(workouts)
+            workouts_processed: List[dict] = process_outgoing_workouts(workouts)
             print(workouts_processed)
-            return Response(body=workouts_processed)
+            return Response(body={"workouts": workouts_processed})
         except Exception as e:
+            print(e)
             return Response(status_code=500, error_message=e)
 
 
