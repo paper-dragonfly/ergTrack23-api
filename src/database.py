@@ -47,6 +47,7 @@ class WorkoutLogTable(Base):
         server_default="nextval('workout_log_workout_id_seq')",
     )
     user_id = Column(Integer, ForeignKey("user.user_id"))
+    description = Column(String)
     date = Column(Date)
     time = Column(String)
     meter = Column(Integer)

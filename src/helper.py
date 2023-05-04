@@ -3,7 +3,8 @@ from typing import Union, List
 from src.schemas import WorkoutLogSchema
 
 
-def process_outgoing_workouts(workouts: List[WorkoutLogSchema]):
+def process_outgoing_workouts(workouts: List[WorkoutLogSchema]) -> List[dict]:
+    # converts list of class instances into list of dictionaries
     workouts_outgoing_list = []
     for wo in workouts:
         wo_dict = {k: v for k, v in wo.__dict__.items() if not k.startswith("_")}

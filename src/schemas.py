@@ -44,6 +44,7 @@ class OcrDataReturn(BaseModel):
 class WorkoutLogSchema(BaseModel):
     workout_id: int
     user_id: int
+    description: str
     date: date
     time: str
     meter: int
@@ -52,3 +53,4 @@ class WorkoutLogSchema(BaseModel):
     interval: bool
     image_hash: Optional[str] = None
     subworkouts: List[dict]
+    comment: str

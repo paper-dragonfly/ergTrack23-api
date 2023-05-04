@@ -143,7 +143,6 @@ async def read_workout(authorization: str = Header(...)):
         return Response(status_code=401, error_message="Unauthorized Request")
     with Session() as session:
         try:
-            # pdb.set_trace()
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
@@ -174,6 +173,7 @@ async def create_workout(
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
             workout_entry = WorkoutLogTable(
                 user_id=user_id,
+                description=workoutData.woMetaData["workoutName"],
                 date=workoutData.woMetaData["workoutDate"],
                 time=workoutData.tableMetrics[0]["time"],
                 meter=workoutData.tableMetrics[0]["distance"],
@@ -182,6 +182,7 @@ async def create_workout(
                 interval=False,
                 image_hash=workoutData.photoHash,
                 subworkouts=subworkouts_json,
+                comment=workoutData.woMetaData["comment"],
             )
 
             # use sqlAlchemy to add entryy to db
@@ -190,7 +191,7 @@ async def create_workout(
             session.commit()
         except Exception as e:
             return Response(status_code=500, error_message=e)
-    return Response(body={"message": "workrout posted successfully"})
+    return Response(body={"message": "workout posted successfully"})
 
 
 @app.post("/sandbox")

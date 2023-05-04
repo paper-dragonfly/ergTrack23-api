@@ -4,6 +4,7 @@ import os
 from PIL import Image
 from io import BytesIO
 from src.ocr import hit_textract_api
+from datetime import datetime
 
 
 ERG_IMAGE_DIRECTORY = "ergImages"
@@ -113,3 +114,48 @@ def list_all_blocktypes(raw_ocr_responses: dict):
 # display_fails(ERG_IMAGE_DIRECTORY, FAILED_0412)
 
 # Expolore
+
+workouts_outgoing_list = [
+    {
+        "workout_id": 1,
+        "date": datetime.date(2022, 7, 1),
+        "meter": 2000,
+        "stroke_rate": 29,
+        "image_hash": None,
+        "comment": None,
+        "time": "8:52.9",
+        "user_id": 1,
+        "description": None,
+        "split": "2:13.2",
+        "interval": False,
+        "subworkouts": '[{"id": "FHoqA2xfnzx7jIJauEDCe", "time": "1:59.3", "distance": 500, "split": "1:59.3", "strokeRate": 32, "heartRate": null}, {"id": "AivW8by5DcQdejTwFvnPD", "time": "2:14.1", "distance": 1000, "split": "2:14.1", "strokeRate": 29, "heartRate": null}, {"id": "NEK2Muzqza9DbL3NIMymn", "time": "2:17.7", "distance": 1500, "split": "2:17.7", "strokeRate": 24, "heartRate": null}, {"id": "vqHzGJt2nYJnP7IVqSFck", "time": "2:21.9", "distance": 2000, "split": "2:21.9", "strokeRate": 31, "heartRate": null}]',
+    },
+    {
+        "workout_id": 2,
+        "date": datetime.date(2022, 1, 28),
+        "meter": 10000,
+        "stroke_rate": 30,
+        "image_hash": None,
+        "comment": None,
+        "time": "41:52.7",
+        "user_id": 1,
+        "description": None,
+        "split": "2:05.6",
+        "interval": False,
+        "subworkouts": '[{"id": "aE3WD-ETaJWB_R9JCFIIL", "time": "1:51.8", "distance": 500, "split": "1:51.8", "strokeRate": 27, "heartRate": null}, {"id": "mArDJJBN4spmD7QoeYwKf", "time": "1:54.4", "distance": 1000, "split": "1:54.4", "strokeRate": 26, "heartRate": null}, {"id": "RG8pxP1EyRIbyF8F4IfKj", "time": "1:54.7", "distance": 1500, "split": "1:54.7", "strokeRate": 27, "heartRate": null}, {"id": "YJ6JRjtTMeNIay6MzHEtv", "time": "2:01.3", "distance": 2000, "split": "2:01.3", "strokeRate": 33, "heartRate": null}, {"id": "ovgAKOnc_TjDIzD2nA8Ao", "time": "2:08.7", "distance": 2500, "split": "2:08.7", "strokeRate": 30, "heartRate": null}, {"id": "vRBk-3yfkzisqkXY0ZinW", "time": "2:14.9", "distance": 3000, "split": "2:14.9", "strokeRate": 35, "heartRate": null}, {"id": "ANhGmhNPqWKsHZtEXo6Jn", "time": "2:10.4", "distance": 3500, "split": "2:10.4", "strokeRate": 34, "heartRate": null}, {"id": "v-x1vx_LAPli58_eHIVjR", "time": "2:20.6", "distance": 4000, "split": "2:20.6", "strokeRate": 28, "heartRate": null}]',
+    },
+    {
+        "workout_id": 8,
+        "date": datetime.date(2022, 7, 1),
+        "meter": 2000,
+        "stroke_rate": 29,
+        "image_hash": "436fc4beb720123fa096cc72ffd95e4038dd157562d6a466199ac0ea2cb2e089",
+        "comment": "sara's 2k",
+        "time": "8:52.9",
+        "user_id": 1,
+        "description": "2000m",
+        "split": "2:13.2",
+        "interval": False,
+        "subworkouts": '[{"id": "Y2DcYttk3uzQcANjrdivP", "time": "1:59.3", "distance": 500, "split": "1:59.3", "strokeRate": 32, "heartRate": null}, {"id": "o2nAZMDb2lIsPL5D1Eb0O", "time": "2:14.1", "distance": 1000, "split": "2:14.1", "strokeRate": 29, "heartRate": null}, {"id": "g5DY-QyqAT7jxNc9HRsmi", "time": "2:17.7", "distance": 1500, "split": "2:17.7", "strokeRate": 24, "heartRate": null}, {"id": "QVsYUycapSsiOVCtpNfMu", "time": "2:21.9", "distance": 2000, "split": "2:21.9", "strokeRate": 31, "heartRate": null}]',
+    },
+]
