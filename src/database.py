@@ -20,7 +20,12 @@ Base = declarative_base()
 class UserTable(Base):
     __tablename__ = "user"
 
-    user_id = Column(Integer, Sequence("user_id_sequ"), primary_key=True)
+    user_id = Column(
+        Integer,
+        Sequence("user_user_id_seq"),
+        primary_key=True,
+        server_default="nextval('user_user_id_seq')",
+    )
     auth_uid = Column(String)  # from firebase
     user_name = Column(String)  # from firebase or edited by user
     email = Column(String)  # from firebase
@@ -35,7 +40,12 @@ class UserTable(Base):
 class WorkoutLogTable(Base):
     __tablename__ = "workout_log"
 
-    workout_id = Column(Integer, Sequence("workout_id_sequ"), primary_key=True)
+    workout_id = Column(
+        Integer,
+        Sequence("workout_log_workout_id_seq"),
+        primary_key=True,
+        server_default="nextval('workout_log_workout_id_seq')",
+    )
     user_id = Column(Integer, ForeignKey("user.user_id"))
     date = Column(Date)
     time = Column(String)

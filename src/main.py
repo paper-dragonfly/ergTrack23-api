@@ -71,7 +71,6 @@ async def root():
 
 @app.get("/login/")
 async def read_login(authorization: str = Header(...)):
-    # pdb.set_trace()
     id_token = authorization.split(" ")[1]
     print("Auth val: ", authorization)
     try:
@@ -102,6 +101,7 @@ async def read_login(authorization: str = Header(...)):
             except Exception as e:
                 message = "cannot validate user or cannot add user to db"
                 print(message)
+                print(e)
                 return Response(status_code=500, error_message=e)
         encrypted_token = create_encrypted_token(auth_uid)
     except auth.InvalidIdTokenError as err:

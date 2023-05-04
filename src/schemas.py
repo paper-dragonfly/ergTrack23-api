@@ -36,6 +36,7 @@ class WorkoutDataReturn(BaseModel):
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
+    photo_hash: str
 
 
 # Miscellaneous
