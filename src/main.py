@@ -3,20 +3,29 @@ from http import HTTPStatus
 import json
 from io import BytesIO
 from PIL import Image
-from typing import Optional
+from typing import Optional, List, Union
 import time
 import yaml
+from datetime import datetime
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import credentials, auth
 import firebase_admin
-from cryptography.fernet import Fernet
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from src.schemas import PostWorkoutSchema, OcrDataReturn
 from src.classes import Response
 from src.ocr import hit_textract_api, process_raw_ocr
-from src.utils import get_processed_ocr_data
+from src.utils import (
+    get_processed_ocr_data,
+    create_encrypted_token,
+    validate_user_token,
+    get_user_id,
+)
+from src.database import UserTable, WorkoutLogTable
+from src.helper import process_outgoing_workouts
 
 app = FastAPI()
 
@@ -41,11 +50,13 @@ with open("config/config.yaml", "r") as f:
 
 SECRET_STRING = config_data["SECRET_STRING"]
 FAKE_DB = config_data["FAKE_DB"]
+CONC_STR = "postgresql://katcha@localhost:5432/erg_track"
 
-# generate key for encrypting and decrypting
-KEY = Fernet.generate_key()
-# create a Fernet instance using KEY
-fernet = Fernet(KEY)
+# sqlalchemy setup
+engine = create_engine(CONC_STR, echo=True)
+Session = sessionmaker(bind=engine)
+
+######  END POINTS ######
 
 
 @app.get("/health")
@@ -60,27 +71,39 @@ async def root():
 
 @app.get("/login/")
 async def read_login(authorization: str = Header(...)):
-    # pdb.set_trace()
     id_token = authorization.split(" ")[1]
     print("Auth val: ", authorization)
     try:
         # hack fix added delay - TODO find better  solution
-        time.sleep(0.1)
+        print(datetime.now())
+        time.sleep(2.0)
+        print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
         # token is valid
-        user_id = decoded_token["uid"]
-        # check if user in db
-        if not user_id in FAKE_DB["user_id"]:
-            # name = decoded_token["name"]
-            # email = decoded_token["email"]
-            # user_id = decoded_token['uid']
-            FAKE_DB["name"].append(decoded_token["name"])
-            FAKE_DB["email"].append(decoded_token["email"])
-            FAKE_DB["user_id"].append(user_id)
-        # create personal hash token
-        unencrypted_string = SECRET_STRING + "BREAK" + user_id
-        encrypted_token = fernet.encrypt(unencrypted_string.encode())
+        auth_uid = decoded_token["uid"]
+        # check if user in db, if not add user
+        with Session() as session:
+            try:
+                existing_user = (
+                    session.query(UserTable.auth_uid)
+                    .filter_by(auth_uid=auth_uid)
+                    .scalar()
+                )
+                if not existing_user:
+                    new_user = UserTable(
+                        auth_uid=auth_uid,
+                        user_name=decoded_token["name"],
+                        email=decoded_token["email"],
+                    )
+                    session.add(new_user)
+                    session.commit()
+            except Exception as e:
+                message = "cannot validate user or cannot add user to db"
+                print(message)
+                print(e)
+                return Response(status_code=500, error_message=e)
+        encrypted_token = create_encrypted_token(auth_uid)
     except auth.InvalidIdTokenError as err:
         print("Error: ", str(err))
         # Token invalid
@@ -92,21 +115,20 @@ async def read_login(authorization: str = Header(...)):
     return Response(body={"user_token": encrypted_token})
 
 
-@app.get("/email/")
-def read_email(authorization: str = Header(...)):
-    user_token = authorization.split(" ")[1]
-    # decrypt token
-    decMessage_list = fernet.decrypt(user_token).decode().split("BREAK")
-    print(decMessage_list)
-    if decMessage_list[0] != SECRET_STRING:
-        return Response(status_code=401, error_message="Invalid userToken")
-    else:
-        email = FAKE_DB["email"][FAKE_DB["user_id"].index(decMessage_list[1])]
-        return Response(body={"user_email": email})
+# @app.get("/email/")
+# def read_email(authorization: str = Header(...)):
+#     user_token = authorization.split(" ")[1]
+#     valid_token = validate_user_token(user_token)
+#     if not valid_token:
+#         return Response(status_code=401, error_message="Invalid userToken")
+#     # get data from db
+#     email = FAKE_DB["email"][FAKE_DB["user_id"].index(decMessage_list[1])]
+#     return Response(body={"user_email": email})
 
 
 @app.post("/ergImage")
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
+    """Receives photo of erg screen,"""
     ocr_data: OcrDataReturn = get_processed_ocr_data(ergImg)
     # TODO: if successful -> use cabinet to save Image to cloudStorage
     # TODO: will need to add image_hash to response
@@ -114,10 +136,60 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     return Response(body=ocr_data)
 
 
+@app.get("/workout")
+async def read_workout(authorization: str = Header(...)):
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    with Session() as session:
+        try:
+            # pdb.set_trace()
+            user_id = get_user_id(auth_uid, session)
+            workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
+            print("workouts retreived")
+            print(workouts)
+            workouts_processed: List[dict] = process_outgoing_workouts(workouts)
+            print(workouts_processed)
+            return Response(body={"workouts": workouts_processed})
+        except Exception as e:
+            print(e)
+            return Response(status_code=500, error_message=e)
+
+
 @app.post("/workout")
-async def create_workout(workoutData: PostWorkoutSchema):
+async def create_workout(
+    workoutData: PostWorkoutSchema, authorization: str = Header(...)
+):
+    # pdb.set_trace()
+    # confirm data coming from valid user
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
     print(workoutData)
-    return Response(body={"message": "success  post to workout"})
+    with Session() as session:
+        try:
+            # get user_id
+            user_id = get_user_id(auth_uid, session)
+            # create data entry (WorkoutLogTable  instance)
+            subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
+            workout_entry = WorkoutLogTable(
+                user_id=user_id,
+                date=workoutData.nameAndDate["workoutDate"],
+                time=workoutData.tableMetrics[0]["time"],
+                meter=workoutData.tableMetrics[0]["distance"],
+                split=workoutData.tableMetrics[0]["split"],
+                stroke_rate=workoutData.tableMetrics[0]["strokeRate"],
+                interval=False,
+                subworkouts=subworkouts_json,
+            )
+
+            # use sqlAlchemy to add entryy to db
+
+            session.add(workout_entry)
+            session.commit()
+        except Exception as e:
+            return Response(status_code=500, error_message=e)
+    return Response(body={"message": "workrout posted successfully"})
 
 
 @app.post("/sandbox")

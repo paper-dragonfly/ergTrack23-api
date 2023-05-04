@@ -1,6 +1,7 @@
 from pydantic import BaseModel, validator
 from typing import Optional, List
 from fastapi import UploadFile, Form, File
+from datetime import date
 
 
 class PostWorkoutSchema(BaseModel):
@@ -35,3 +36,18 @@ class WorkoutDataReturn(BaseModel):
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
+    photo_hash: str
+
+
+# Miscellaneous
+class WorkoutLogSchema(BaseModel):
+    workout_id: int
+    user_id: int
+    date: date
+    time: str
+    meter: int
+    split: str
+    stroke_rate: int
+    interval: bool
+    image_hash: Optional[str] = None
+    subworkouts: List[dict]

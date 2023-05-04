@@ -153,7 +153,7 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
     return meta_dict
 
 
-def process_raw_ocr(raw_response: dict) -> OcrDataReturn:
+def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     word_index = create_word_index(raw_response)
     table_data = extract_table_data(raw_response, word_index)
     print("table_data: ", table_data)
@@ -176,4 +176,8 @@ def process_raw_ocr(raw_response: dict) -> OcrDataReturn:
     print("\nWorkout Data")
     print(workout_df)
 
-    return {"workout_meta": clean_meta, "workout_data": workout_data}
+    return {
+        "workout_meta": clean_meta,
+        "workout_data": workout_data,
+        "photo_hash": photo_hash,
+    }
