@@ -22,7 +22,6 @@ fernet = Fernet(KEY)
 
 def get_processed_ocr_data(erg_photo) -> dict:
     # convert bytes to byte array & create photo_hash
-    pdb.set_trace()
     byte_array = bytearray(erg_photo.file.read())
     photo_hash = sha256(byte_array).hexdigest()
     # Check if image is already in raw_ocr library

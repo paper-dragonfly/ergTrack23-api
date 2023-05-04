@@ -55,9 +55,10 @@ class WorkoutLogTable(Base):
     interval = Column(Boolean)
     image_hash = Column(String)
     subworkouts = Column(JSON)
+    comment = Column(String)
 
     def __repr__(self):
-        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, interval={self.interval}, image_hash={self.image_hash}, subworkouts={self.subworkouts})>"
+        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, interval={self.interval}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
 
 
 # Below:  uses SQLAlchemy directly to make tables, confuses aleembic. Don't use/

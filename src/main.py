@@ -174,12 +174,13 @@ async def create_workout(
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
             workout_entry = WorkoutLogTable(
                 user_id=user_id,
-                date=workoutData.nameAndDate["workoutDate"],
+                date=workoutData.woMetaData["workoutDate"],
                 time=workoutData.tableMetrics[0]["time"],
                 meter=workoutData.tableMetrics[0]["distance"],
                 split=workoutData.tableMetrics[0]["split"],
                 stroke_rate=workoutData.tableMetrics[0]["strokeRate"],
                 interval=False,
+                image_hash=workoutData.photoHash,
                 subworkouts=subworkouts_json,
             )
 

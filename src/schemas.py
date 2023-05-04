@@ -5,8 +5,9 @@ from datetime import date
 
 
 class PostWorkoutSchema(BaseModel):
-    nameAndDate: dict
+    woMetaData: dict
     tableMetrics: List[dict]
+    photoHash: str
 
 
 class PostWorkoutSchema2(BaseModel):
