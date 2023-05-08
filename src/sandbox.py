@@ -65,8 +65,8 @@ def sort_processable():
         except Exception as e:
             print(e)
             fails.append(image)
-    print("Fails", fails)
-    print("success", success)
+    print("success", success, len(success))
+    print("Fails", fails, len(fails))
 
 
 fails = [
@@ -117,8 +117,8 @@ def inspect_one(image_name):
 if __name__ == "__main__":
     # ocr_all()
     # list_library_contents()
-    # sort_processable()
-    fails_info(fails)
+    sort_processable()
+    # fails_info(fails)
     # inspect_one("20220701_130356.jpg")
 
 

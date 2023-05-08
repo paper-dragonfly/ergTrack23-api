@@ -19,13 +19,12 @@ from src.schemas import PostWorkoutSchema, OcrDataReturn
 from src.classes import Response
 from src.ocr import hit_textract_api, process_raw_ocr
 from src.utils import (
-    get_processed_ocr_data,
     create_encrypted_token,
     validate_user_token,
     get_user_id,
 )
 from src.database import UserTable, WorkoutLogTable
-from src.helper import process_outgoing_workouts
+from src.helper import process_outgoing_workouts, upload_blob, get_processed_ocr_data
 
 app = FastAPI()
 
@@ -130,10 +129,14 @@ async def read_login(authorization: str = Header(...)):
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     """Receives photo of erg screen, sends to Textract for OCR, processes raw result"""
     try:
-        ocr_data: OcrDataReturn = get_processed_ocr_data(ergImg)
+        image_bytes = ergImg.file.read()
+        filename = ergImg.filename
+        ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
+        upload_blob("erg_memory_screen_photos", image_bytes, ocr_data["photo_hash"])
     except Exception as e:
         print("/ergImage exception", e)
         return Response(status_code=400, error_message=str(e))
+
     # TODO: if successful -> use cabinet to save Image to cloudStorage
     # TODO: will need to add image_hash to response
 
