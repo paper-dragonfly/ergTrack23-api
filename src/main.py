@@ -2,7 +2,6 @@ import pdb
 from http import HTTPStatus
 import json
 from io import BytesIO
-from PIL import Image
 from typing import Optional, List, Union
 import time
 import yaml
@@ -12,12 +11,12 @@ from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import credentials, auth
 import firebase_admin
+from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.schemas import PostWorkoutSchema, OcrDataReturn
+from src.schemas import PostWorkoutSchema, OcrDataReturn, WorkoutLogSchema
 from src.classes import Response
-from src.ocr import hit_textract_api, process_raw_ocr
 from src.utils import (
     create_encrypted_token,
     validate_user_token,
@@ -43,7 +42,7 @@ app.add_middleware(
 cred = credentials.Certificate("config/ergtracker-firebase-adminsdk.json")
 firebase_admin.initialize_app(cred)
 
-# Load vals from config
+# Load config file values
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -54,6 +53,7 @@ CONC_STR = "postgresql://katcha@localhost:5432/erg_track"
 # sqlalchemy setup
 engine = create_engine(CONC_STR, echo=True)
 Session = sessionmaker(bind=engine)
+
 
 ######  END POINTS ######
 
@@ -70,12 +70,17 @@ async def root():
 
 @app.get("/login/")
 async def read_login(authorization: str = Header(...)):
+    """
+    Receives id_token
+    Validate user with Firebase, add to ergTrack db if new, generate encrypted token
+    Return encrypted token
+    """
     id_token = authorization.split(" ")[1]
     print("Auth val: ", authorization)
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        time.sleep(2.0)
+        time.sleep(1.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
@@ -127,7 +132,11 @@ async def read_login(authorization: str = Header(...)):
 
 @app.post("/ergImage")
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
-    """Receives photo of erg screen, sends to Textract for OCR, processes raw result"""
+    """
+    Receives UploadFile containing photo of erg screen,
+    sends image to Textract for OCR, processes raw result
+    Returns processed data
+    """
     try:
         image_bytes = ergImg.file.read()
         filename = ergImg.filename
@@ -136,15 +145,12 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     except Exception as e:
         print("/ergImage exception", e)
         return Response(status_code=400, error_message=str(e))
-
-    # TODO: if successful -> use cabinet to save Image to cloudStorage
-    # TODO: will need to add image_hash to response
-
     return Response(body=ocr_data)
 
 
 @app.get("/workout")
 async def read_workout(authorization: str = Header(...)):
+    """Get all workout data for user"""
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
         return Response(status_code=401, error_message="Unauthorized Request")
@@ -154,7 +160,9 @@ async def read_workout(authorization: str = Header(...)):
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
             print(workouts)
-            workouts_processed: List[dict] = process_outgoing_workouts(workouts)
+            workouts_processed: List[WorkoutLogSchema] = process_outgoing_workouts(
+                workouts
+            )
             print(workouts_processed)
             return Response(body={"workouts": workouts_processed})
         except Exception as e:
@@ -166,6 +174,11 @@ async def read_workout(authorization: str = Header(...)):
 async def create_workout(
     workoutData: PostWorkoutSchema, authorization: str = Header(...)
 ):
+    """
+    Receives: workout data and id_token
+    Add workout data to ergTrack db
+    Retruns: success message
+    """
     # pdb.set_trace()
     # confirm data coming from valid user
     auth_uid = validate_user_token(authorization)

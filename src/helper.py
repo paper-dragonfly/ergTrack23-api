@@ -15,8 +15,12 @@ from src.ocr import hit_textract_api, process_raw_ocr
 def get_processed_ocr_data(
     erg_photo_filename: str, image_bytes: bytes
 ) -> Tuple[Dict, str]:
+    """
+    Receives: erg image filename & bytes
+    Get raw_ocr (retrieve from library or from AWS Textract) and process
+    Returns: processed workout data
+    """
     # convert bytes to byte array & create photo_hash
-    pdb.set_trace()
     byte_array = bytearray(image_bytes)
     photo_hash = sha256(byte_array).hexdigest()
     # Check if image is already in raw_ocr library
@@ -54,6 +58,7 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
 
 
 def process_outgoing_workouts(workouts: List[WorkoutLogSchema]) -> List[dict]:
+    """Reformat workouts retrieved by sqlAlchemy query from list of class instances to list of dicts"""
     # converts list of class instances into list of dictionaries
     workouts_outgoing_list = []
     for wo in workouts:
