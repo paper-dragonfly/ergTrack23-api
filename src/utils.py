@@ -3,7 +3,7 @@ import pdb
 import yaml
 from PIL import Image
 from io import BytesIO
-from typing import Union
+from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
 
@@ -20,7 +20,7 @@ KEY = config_data["FERNET_KEY"]
 fernet = Fernet(KEY)
 
 
-def get_processed_ocr_data(erg_photo) -> dict:
+def get_processed_ocr_data(erg_photo) -> Tuple[Dict, str]:
     # convert bytes to byte array & create photo_hash
     byte_array = bytearray(erg_photo.file.read())
     photo_hash = sha256(byte_array).hexdigest()

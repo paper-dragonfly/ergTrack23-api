@@ -128,8 +128,12 @@ async def read_login(authorization: str = Header(...)):
 
 @app.post("/ergImage")
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
-    """Receives photo of erg screen,"""
-    ocr_data: OcrDataReturn = get_processed_ocr_data(ergImg)
+    """Receives photo of erg screen, sends to Textract for OCR, processes raw result"""
+    try:
+        ocr_data: OcrDataReturn = get_processed_ocr_data(ergImg)
+    except Exception as e:
+        print("/ergImage exception", e)
+        return Response(status_code=400, error_message=str(e))
     # TODO: if successful -> use cabinet to save Image to cloudStorage
     # TODO: will need to add image_hash to response
 
