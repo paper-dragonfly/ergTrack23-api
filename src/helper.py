@@ -52,7 +52,7 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     if blob.exists():
         print("Duplicate: blob already exists in bucket")
     else:
-        pdb.set_trace()
+        # pdb.set_trace()
         blob.upload_from_string(image_bytes, "image/jpeg")
         print(f"{image_hash} uploaded to {bucket_name}.")
 

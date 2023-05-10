@@ -46,12 +46,17 @@ firebase_admin.initialize_app(cred)
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
 
+CURRENT_ENV = config_data["current_env"]
+if CURRENT_ENV == "dev_local":
+    CONN_STR = config_data["db_conn_str"]["local"]
+else:
+    CONN_STR = config_data["db_conn_str"]["elephantsql"]
+
 SECRET_STRING = config_data["SECRET_STRING"]
 FAKE_DB = config_data["FAKE_DB"]
-CONC_STR = "postgresql://katcha@localhost:5432/erg_track"
 
 # sqlalchemy setup
-engine = create_engine(CONC_STR, echo=True)
+engine = create_engine(CONN_STR, echo=True)
 Session = sessionmaker(bind=engine)
 
 

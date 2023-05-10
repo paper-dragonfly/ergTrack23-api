@@ -114,12 +114,44 @@ def inspect_one(image_name):
     process_raw_ocr(raw_ocr_library[image_name], "fakehash")
 
 
+## TEST DB
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import yaml
+from src.database import WorkoutLogTable
+
+# Load config file values
+with open("config/config.yaml", "r") as f:
+    config_data = yaml.load(f, Loader=yaml.FullLoader)
+
+print(config_data)
+
+CONC_STR = config_data["db_conn_str"]["elephantsql"]
+
+# sqlalchemy setup
+engine = create_engine(CONC_STR, echo=True)
+Session = sessionmaker(bind=engine)
+
+
+def test_db_conn_load_all_workouts():
+    try:
+        session = Session()
+        workout_data = session.query(WorkoutLogTable).all()
+        print(workout_data)
+    except Exception as e:
+        print(e)
+
+
 if __name__ == "__main__":
+    ## IMPROVE OCR
     # ocr_all()
     # list_library_contents()
-    sort_processable()
+    # sort_processable()
     # fails_info(fails)
     # inspect_one("20220701_130356.jpg")
+
+    ## TEST DB
+    test_db_conn_load_all_workouts()
 
 
 # def get_processed_ocr_data(erg_photo):

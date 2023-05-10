@@ -11,8 +11,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import JSON
 
-engine = create_engine("postgresql://katcha@localhost:5432/erg_track", echo=False)
-Session = sessionmaker(bind=engine)
+# engine = create_engine("postgresql://katcha@localhost:5432/erg_track", echo=False)
+# Session = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
