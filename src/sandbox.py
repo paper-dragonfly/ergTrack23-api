@@ -115,31 +115,100 @@ def inspect_one(image_name):
 
 
 ## TEST DB
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import yaml
 from src.database import WorkoutLogTable
+from google.cloud.sql.connector import Connector
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Sequence,
+    ForeignKey,
+    Date,
+    Boolean,
+    Float,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.dialects.postgresql import JSON
 
-# Load config file values
-with open("config/config.yaml", "r") as f:
-    config_data = yaml.load(f, Loader=yaml.FullLoader)
-
-print(config_data)
-
-CONC_STR = config_data["db_conn_str"]["elephantsql"]
-
-# sqlalchemy setup
-engine = create_engine(CONC_STR, echo=True)
-Session = sessionmaker(bind=engine)
+# define table schema
+Base = declarative_base()
 
 
-def test_db_conn_load_all_workouts():
-    try:
-        session = Session()
-        workout_data = session.query(WorkoutLogTable).all()
-        print(workout_data)
-    except Exception as e:
-        print(e)
+class SandwichesRatings(Base):
+    __tablename__ = "ratings"
+
+    id = Column(
+        Integer,
+        Sequence("ratings_id_seq"),
+        primary_key=True,
+        nullable=False,
+        server_default="nextval('ratings_id_seq')",
+    )
+    name = Column(String, nullable=False)
+    origin = Column(String, nullable=False)
+    rating = Column(Float, nullable=False)
+
+    def __repr__(self):
+        return "<UserTable(id='%s', name='%s',  origin='%s', rating='%s')>" % (
+            self.id,
+            self.name,
+            self.origin,
+            self.rating,
+        )
+
+
+# initialize parameters
+INSTANCE_CONNECTION_NAME = "ergtracker:us-east1:ergtrack-gc-db"
+# DB_USER = "ergtrack-api"
+# DB_PASS = "api-pw-05102023"
+# DB_NAME = "ergtrack-05102023"
+
+DB_USER = "chef"
+DB_PASS = "food"
+DB_NAME = "sandwiches"
+
+# initialize Connector object
+connector = Connector()
+
+
+# function to return the database connection object
+def getconn():
+    conn = connector.connect(
+        INSTANCE_CONNECTION_NAME, "pg8000", user=DB_USER, password=DB_PASS, db=DB_NAME
+    )
+    return conn
+
+
+# create connection pool with 'creator' argument to our connection object function
+pool = create_engine(
+    "postgresql+pg8000://",
+    creator=getconn,
+)
+Session = sessionmaker(bind=pool)
+
+
+def test_conn(pool=pool):
+    with pool.connect() as db_conn:
+        # query and fetch ratings table
+        results = db_conn.execute(text("SELECT * FROM ratings")).fetchall()
+
+        # show results
+        for row in results:
+            print(row)
+        connector.close()
+
+
+def test_conn_with_session():
+    with Session() as session:
+        try:
+            resp = session.query(SandwichesRatings).all()
+            print(resp)
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":
@@ -151,8 +220,8 @@ if __name__ == "__main__":
     # inspect_one("20220701_130356.jpg")
 
     ## TEST DB
-    test_db_conn_load_all_workouts()
-
+    # test_conn()
+    test_conn_with_session()
 
 # def get_processed_ocr_data(erg_photo):
 #     # convert bytes to byte array & create photo_hash
