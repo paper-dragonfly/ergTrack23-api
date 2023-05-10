@@ -11,8 +11,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import JSON
 
-engine = create_engine("postgresql://katcha@localhost:5432/erg_track", echo=False)
-Session = sessionmaker(bind=engine)
+# engine = create_engine("postgresql://katcha@localhost:5432/erg_track", echo=False)
+# Session = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
@@ -47,6 +47,7 @@ class WorkoutLogTable(Base):
         server_default="nextval('workout_log_workout_id_seq')",
     )
     user_id = Column(Integer, ForeignKey("user.user_id"))
+    description = Column(String)
     date = Column(Date)
     time = Column(String)
     meter = Column(Integer)
@@ -55,9 +56,10 @@ class WorkoutLogTable(Base):
     interval = Column(Boolean)
     image_hash = Column(String)
     subworkouts = Column(JSON)
+    comment = Column(String)
 
     def __repr__(self):
-        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, interval={self.interval}, image_hash={self.image_hash}, subworkouts={self.subworkouts})>"
+        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, interval={self.interval}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
 
 
 # Below:  uses SQLAlchemy directly to make tables, confuses aleembic. Don't use/
