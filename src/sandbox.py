@@ -115,31 +115,164 @@ def inspect_one(image_name):
 
 
 ## TEST DB
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, engine, inspect, MetaData, Table
 from sqlalchemy.orm import sessionmaker
 import yaml
 from src.database import WorkoutLogTable
+from google.cloud.sql.connector import Connector, IPTypes
+import pg8000
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Sequence,
+    Float,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.dialects.postgresql import JSON
 
-# Load config file values
-with open("config/config.yaml", "r") as f:
-    config_data = yaml.load(f, Loader=yaml.FullLoader)
-
-print(config_data)
-
-CONC_STR = config_data["db_conn_str"]["elephantsql"]
-
-# sqlalchemy setup
-engine = create_engine(CONC_STR, echo=True)
-Session = sessionmaker(bind=engine)
+# define table schema
+Base = declarative_base()
 
 
-def test_db_conn_load_all_workouts():
-    try:
-        session = Session()
-        workout_data = session.query(WorkoutLogTable).all()
-        print(workout_data)
-    except Exception as e:
-        print(e)
+class SandwichesRatings(Base):
+    __tablename__ = "ratings"
+
+    id = Column(
+        Integer,
+        Sequence("ratings_id_seq"),
+        primary_key=True,
+        nullable=False,
+        server_default="nextval('ratings_id_seq')",
+    )
+    name = Column(String, nullable=False)
+    origin = Column(String, nullable=False)
+    rating = Column(Float, nullable=False)
+
+    def __repr__(self):
+        return "<UserTable(id='%s', name='%s',  origin='%s', rating='%s')>" % (
+            self.id,
+            self.name,
+            self.origin,
+            self.rating,
+        )
+
+
+# initialize parameters
+INSTANCE_CONNECTION_NAME = "ergtracker:us-east1:ergtrack-gc-db"
+DB_PORT = 5432
+ip_type = IPTypes.PUBLIC
+INSTANCE_HOST = "127.0.0.1"
+
+# ERG DB
+DB_USER = "ergtrack23-api"
+DB_PASS = "api-pw-05102023"
+DB_NAME = "ergtrack05102023"
+
+# DEMO DB
+# DB_USER = "chef"
+# DB_PASS = "food"
+# DB_NAME = "sandwiches"
+
+
+# initialize Connector object
+connector = Connector()
+
+
+# function to return the database connection object
+def getconn():
+    conn = connector.connect(
+        INSTANCE_CONNECTION_NAME,
+        "pg8000",
+        user=DB_USER,
+        password=DB_PASS,
+        db=DB_NAME,
+        port=DB_PORT,
+    )
+    return conn
+
+
+# create connection pool with 'creator' argument to our connection object function
+# NOTE: this works but cannot get alembic to use google cloud connector obj
+# pool = create_engine(
+#     "postgresql+pg8000://",
+#     creator=getconn,
+# )
+
+# create connection pool with conn_str
+# NOTE: this is not working
+pool = create_engine(
+    f"postgresql+pg8000://{DB_USER}:{DB_PASS}@{INSTANCE_HOST}:{DB_PORT}/{DB_NAME}"
+)
+
+import os
+import ssl
+
+
+# def connect_tcp_socket() -> engine.base.Engine:
+#     """Initializes a TCP connection pool for a Cloud SQL instance of Postgres."""
+#     # Note: Saving credentials in environment variables is convenient, but not
+#     # secure - consider a more secure solution such as
+#     # Cloud Secret Manager (https://cloud.google.com/secret-manager) to help
+#     # keep secrets safe.
+#     db_host = INSTANCE_HOST  # e.g. '127.0.0.1' ('172.17.0.1' if deployed to GAE Flex)
+#     db_user = DB_USER  # e.g. 'my-db-user'
+#     db_pass = DB_PASS  # e.g. 'my-db-password'
+#     db_name = DB_NAME  # e.g. 'my-database'
+#     db_port = DB_PORT  # e.g. 5432
+
+#     pool = create_engine(
+#         # Equivalent URL:
+#         # postgresql+pg8000://<db_user>:<db_pass>@<db_host>:<db_port>/<db_name>
+#         engine.url.URL.create(
+#             drivername="postgresql+pg8000",
+#             username=db_user,
+#             password=db_pass,
+#             host=db_host,
+#             port=db_port,
+#             database=db_name,
+#         ),
+#         # ...
+#     )
+#     return pool
+
+
+# pool = connect_tcp_socket()
+
+Session = sessionmaker(bind=pool)
+
+
+def test_conn(pool=pool):
+    with pool.connect() as db_conn:
+        # query and fetch ratings table
+        results = db_conn.execute(text("SELECT * FROM ratings")).fetchall()
+
+        # show results
+        for row in results:
+            print(row)
+        connector.close()
+
+
+def test_conn_with_session():
+    with Session() as session:
+        try:
+            resp = session.query(SandwichesRatings).all()
+            print(resp)
+        except Exception as e:
+            print(e)
+
+
+from src.database import UserTable
+
+
+def test_ergtrack_db_tables_exist():
+    with Session() as session:
+        try:
+            resp = session.query(UserTable).all()
+            print(resp)
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":
@@ -151,8 +284,9 @@ if __name__ == "__main__":
     # inspect_one("20220701_130356.jpg")
 
     ## TEST DB
-    test_db_conn_load_all_workouts()
-
+    # test_conn()
+    # test_conn_with_session()
+    test_ergtrack_db_tables_exist()
 
 # def get_processed_ocr_data(erg_photo):
 #     # convert bytes to byte array & create photo_hash

@@ -3,7 +3,7 @@ import pandas as pd
 import boto3
 import pdb
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
-from src.classes import CustomError
+from src.schemas import CustomError
 
 client = boto3.client("textract")
 
