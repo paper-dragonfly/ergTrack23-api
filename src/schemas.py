@@ -4,6 +4,7 @@ from fastapi import UploadFile, Form, File
 from datetime import date
 
 
+# Incoming post schema
 class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
@@ -19,7 +20,7 @@ class PostWorkoutSchema2(BaseModel):
     ergImg: Optional[UploadFile] = File(None)
 
 
-## return schemas
+## function return schemas
 class CleanMetaReturn(BaseModel):
     wo_name: str
     total_type: Optional[str]
@@ -40,6 +41,13 @@ class OcrDataReturn(BaseModel):
     photo_hash: str
 
 
+# API Response Obj
+class Response(BaseModel):
+    status_code: int = 200
+    error_message: str = None
+    body: dict = None
+
+
 # Miscellaneous
 class WorkoutLogSchema(BaseModel):
     workout_id: int
@@ -54,3 +62,7 @@ class WorkoutLogSchema(BaseModel):
     image_hash: Optional[str] = None
     subworkouts: List[dict]
     comment: str
+
+
+class CustomError(Exception):
+    pass

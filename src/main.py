@@ -15,8 +15,7 @@ from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.schemas import PostWorkoutSchema, OcrDataReturn, WorkoutLogSchema
-from src.classes import Response
+from src.schemas import PostWorkoutSchema, OcrDataReturn, WorkoutLogSchema, Response
 from src.utils import (
     create_encrypted_token,
     validate_user_token,
@@ -50,10 +49,9 @@ CURRENT_ENV = config_data["current_env"]
 if CURRENT_ENV == "dev_local":
     CONN_STR = config_data["db_conn_str"]["local"]
 else:
-    CONN_STR = config_data["db_conn_str"]["elephantsql"]
+    CONN_STR = config_data["db_conn_str"]["gc_sql"]
 
 SECRET_STRING = config_data["SECRET_STRING"]
-FAKE_DB = config_data["FAKE_DB"]
 
 # sqlalchemy setup
 engine = create_engine(CONN_STR, echo=True)
@@ -122,17 +120,6 @@ async def read_login(authorization: str = Header(...)):
             status_code=400, error_message="no token recieved or other issue"
         )
     return Response(body={"user_token": encrypted_token})
-
-
-# @app.get("/email/")
-# def read_email(authorization: str = Header(...)):
-#     user_token = authorization.split(" ")[1]
-#     valid_token = validate_user_token(user_token)
-#     if not valid_token:
-#         return Response(status_code=401, error_message="Invalid userToken")
-#     # get data from db
-#     email = FAKE_DB["email"][FAKE_DB["user_id"].index(decMessage_list[1])]
-#     return Response(body={"user_email": email})
 
 
 @app.post("/ergImage")
@@ -211,7 +198,6 @@ async def create_workout(
             )
 
             # use sqlAlchemy to add entryy to db
-
             session.add(workout_entry)
             session.commit()
         except Exception as e:
