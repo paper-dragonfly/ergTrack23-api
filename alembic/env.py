@@ -4,6 +4,8 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+from src.cloud_connect import getconn
+import pdb
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -65,11 +67,33 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    # with getconn() as connection:
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
+
+    # try:
+    #     # add the connection to the Alembic context object
+    #     pdb.set_trace()
+    #     conn = getconn()
+    #     with conn.cursor() as cursor:
+    #         context.configure(
+    #             connection=conn,
+    #             target_metadata=target_metadata,
+    #             dialect_opts={"paramstyle": "named"},
+    #             compare_server_default=False,
+    #             compare_type=True,
+    #             compare_unicode=True,
+    #         )
+
+    #         # run the migration scripts
+    #         with context.begin_transaction():
+    #             context.run_migrations()
+    # finally:
+    #     # close the connection
+    #     conn.close()
 
 
 if context.is_offline_mode():
