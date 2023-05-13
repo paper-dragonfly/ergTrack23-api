@@ -5,7 +5,7 @@ import pdb
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 from src.schemas import CustomError
 
-client = boto3.client("textract")
+client = boto3.client("textract", region_name="us-east-1")
 
 
 def hit_textract_api(erg_image_bytearray):

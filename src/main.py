@@ -6,6 +6,7 @@ from typing import Optional, List, Union
 import time
 import yaml
 from datetime import datetime
+import os
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,7 +39,8 @@ app.add_middleware(
 
 # initialize Firebase Admin SDK
 # Note: can also store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json'
-cred = credentials.Certificate("config/ergtracker-firebase-adminsdk.json")
+# cred = credentials.Certificate("config/ergtracker-firebase-adminsdk.json")
+cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 firebase_admin.initialize_app(cred)
 
 # Load config file values
@@ -83,7 +85,7 @@ async def read_login(authorization: str = Header(...)):
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        time.sleep(1.0)
+        time.sleep(6.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
