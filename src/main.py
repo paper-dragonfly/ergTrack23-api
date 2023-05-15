@@ -27,7 +27,7 @@ from src.helper import process_outgoing_workouts, upload_blob, get_processed_ocr
 
 app = FastAPI()
 
-origins = ["http://localhost:3000"]
+origins = ["http://localhost:3000", "https://ergtrack.com"]
 # Add CORS middleware to the app
 app.add_middleware(
     CORSMiddleware,
