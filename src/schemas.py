@@ -58,7 +58,6 @@ class WorkoutLogSchema(BaseModel):
     meter: int
     split: str
     stroke_rate: int
-    interval: bool
     image_hash: Optional[str] = None
     subworkouts: List[dict]
     comment: str

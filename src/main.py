@@ -47,11 +47,10 @@ firebase_admin.initialize_app(cred)
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
 
-CURRENT_ENV = config_data["current_env"]
-if CURRENT_ENV == "dev_local":
-    CONN_STR = config_data["db_conn_str"]["local"]
-else:
-    CONN_STR = config_data["db_conn_str"]["gc_sql"]
+# set db connection string based on run environment
+DEV_ENV = os.getenv("DEV_ENV")
+CONN_STR = config_data["db_conn_str"][DEV_ENV]
+
 
 SECRET_STRING = config_data["SECRET_STRING"]
 
@@ -193,7 +192,6 @@ async def create_workout(
                 meter=workoutData.tableMetrics[0]["distance"],
                 split=workoutData.tableMetrics[0]["split"],
                 stroke_rate=workoutData.tableMetrics[0]["strokeRate"],
-                interval=False,
                 image_hash=workoutData.photoHash,
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
@@ -202,9 +200,30 @@ async def create_workout(
             # use sqlAlchemy to add entryy to db
             session.add(workout_entry)
             session.commit()
+            return Response(body={"message": "workout posted successfully"})
         except Exception as e:
             return Response(status_code=500, error_message=e)
-    return Response(body={"message": "workout posted successfully"})
+
+
+@app.delete("/workout/{workout_id}")
+async def delete_workout(workout_id: int, authorization: str = Header(...)):
+    """
+    Receives workout id
+    Deletes entry in workout_log with matching id
+    Returns success message
+    """
+    # confirm data coming from valid user
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    with Session() as session:
+        try:
+            entry = session.query(WorkoutLogTable).get(workout_id)
+            session.delete(entry)
+            session.commit()
+            return Response(body={"message": "delete successful"})
+        except Exception as e:
+            return Response(status_code=500, error_message=e)
 
 
 @app.post("/sandbox")
