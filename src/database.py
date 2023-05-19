@@ -26,11 +26,28 @@ class UserTable(Base):
     auth_uid = Column(String)  # from firebase
     user_name = Column(String)  # from firebase or edited by user
     email = Column(String)  # from firebase
+    age = Column(Integer)
+    sex = Column(String)
+    weight_class = Column(String)
+    para_class = Column(String)
+    country = Column(String)
+    joined = Column(Date, server_default="now()")
 
     def __repr__(self):
         return (
-            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s')>"
-            % (self.user_id, self.auth_uid, self.user_name, self.email)
+            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', age='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s')>"
+            % (
+                self.user_id,
+                self.auth_uid,
+                self.user_name,
+                self.email,
+                self.age,
+                self.sex,
+                self.weight_class,
+                self.para_class,
+                self.country,
+                self.joined,
+            )
         )
 
 
