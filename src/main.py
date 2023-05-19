@@ -16,7 +16,13 @@ from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src.schemas import PostWorkoutSchema, OcrDataReturn, WorkoutLogSchema, Response
+from src.schemas import (
+    PostWorkoutSchema,
+    OcrDataReturn,
+    WorkoutLogSchema,
+    Response,
+    PutUserSchema,
+)
 from src.utils import (
     create_encrypted_token,
     validate_user_token,
@@ -38,7 +44,7 @@ app.add_middleware(
 )
 
 # initialize Firebase Admin SDK
-# Note: can also store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json'
+# Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
 # cred = credentials.Certificate("config/ergtracker-firebase-adminsdk.json")
 cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 firebase_admin.initialize_app(cred)
@@ -84,7 +90,7 @@ async def read_login(authorization: str = Header(...)):
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        time.sleep(6.0)
+        time.sleep(1.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
@@ -121,6 +127,53 @@ async def read_login(authorization: str = Header(...)):
             status_code=400, error_message="no token recieved or other issue"
         )
     return Response(body={"user_token": encrypted_token})
+
+
+@app.get("/user")
+async def read_user(authorization: str = Header(...)):
+    """
+    Recieves user_id
+    Returns all data from UserTable for that user
+    """
+    # confirm data coming from valid user
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session)
+            user_info = session.query(UserTable).get(user_id).__dict__
+            return Response(body=user_info)
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
+
+
+@app.patch("/user")
+async def update_user(new_user_info: PutUserSchema, authorization: str = Header(...)):
+    """
+    Recieves updated user data
+    Updates database
+    Returns success message
+    """
+    # confirm data coming from valid user
+    print(new_user_info)
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session)
+            user = session.query(UserTable).get(user_id)
+            # update user with new info
+            for key, value in new_user_info:
+                setattr(user, key, value)
+            # UserTable[user] = new_user_info.dict()
+            session.commit()
+            return Response(body={"message": "user update succeessful"})
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
 
 
 @app.post("/ergImage")

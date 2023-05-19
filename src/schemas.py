@@ -1,10 +1,10 @@
 from pydantic import BaseModel, validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from fastapi import UploadFile, Form, File
 from datetime import date
 
 
-# Incoming post schema
+# Incoming post/put schema
 class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
@@ -18,6 +18,16 @@ class PostWorkoutSchema2(BaseModel):
     customLength: Optional[str] = (Form(None),)
     subWorkouts: Optional[str] = (Form(None),)
     ergImg: Optional[UploadFile] = File(None)
+
+
+class PutUserSchema(BaseModel):
+    user_name: str
+    email: str
+    country: Optional[str] = None
+    sex: Optional[str] = None
+    age: Optional[int] = None
+    weight_class: Optional[str] = None
+    para_class: Optional[str] = None
 
 
 ## function return schemas
