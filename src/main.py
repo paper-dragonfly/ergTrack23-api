@@ -184,10 +184,19 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     Returns processed data
     """
     try:
+        tinit = datetime.now()
+        print("running ergImage", tinit)
         image_bytes = ergImg.file.read()
         filename = ergImg.filename
         ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
+        t4 = datetime.now()
         upload_blob("erg_memory_screen_photos", image_bytes, ocr_data["photo_hash"])
+        t5 = datetime.now()
+        d3 = t5 - t4
+        print("Time to add blob", d3)
+        tf = datetime.now()
+        dtot = tf - tinit
+        print("TOTAL TIME", dtot)
     except Exception as e:
         print("/ergImage exception", e)
         return Response(status_code=400, error_message=str(e))
