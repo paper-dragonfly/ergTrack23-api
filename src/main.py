@@ -90,7 +90,7 @@ async def read_login(authorization: str = Header(...)):
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        time.sleep(1.0)
+        # time.sleep(5.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
@@ -222,7 +222,7 @@ async def read_workout(authorization: str = Header(...)):
             return Response(body={"workouts": workouts_processed})
         except Exception as e:
             print(e)
-            return Response(status_code=500, error_message=e)
+            return Response(status_code=500, error_message=str(e))
 
 
 @app.post("/workout")

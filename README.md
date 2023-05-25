@@ -8,3 +8,7 @@ Backend for ergTrack app
 
 Run this in command line to allow local conection to cloud sql db
 Like starting the postgreSQL 14 server when running local db
+
+### Version
+
+May 24 : V7
