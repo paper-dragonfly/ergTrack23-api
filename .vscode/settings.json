@@ -1,6 +1,16 @@
+// {
+//   "[python]": {
+//     "editor.defaultFormatter": "ms-python.black-formatter"
+//   },
+//   "python.formatting.provider": "none"
+// }
+
+
 {
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "python.formatting.provider": "none"
+  "editor.formatOnSave": true,
+  "json.format.enable": false
 }

@@ -25,26 +25,36 @@ def get_processed_ocr_data(
     # convert bytes to byte array & create photo_hash
     byte_array = bytearray(image_bytes)
     photo_hash = sha256(byte_array).hexdigest()
+    print("photoHash", photo_hash)
     # Check if image is already in raw_ocr library
     with open("src/rawocr.json", "r") as f:
         raw_ocr_library = json.load(f)
-    if erg_photo_filename in raw_ocr_library.keys():
-        # If yes -> grab raw response
+    library_entries = raw_ocr_library.keys()
+    # If yes -> grab raw response
+    if erg_photo_filename in library_entries:
+        # TODO: change all current images in library to have sha256
+        # get raw data using image file_name
         raw_textract_resp = raw_ocr_library[erg_photo_filename]
+        t2 = datetime.now()
+    elif photo_hash in library_entries:
+        # get raw data using photo_hash
+        raw_textract_resp = raw_ocr_library[photo_hash]
         t2 = datetime.now()
     # If no -> create byte array, display img, send to textract
     else:
-        # open image + send to AWS Textract for OCR extraction
-        pil_image = Image.open(BytesIO(byte_array))
-        pil_image.show()
+        # open image (dev only) + send to AWS Textract for OCR extraction
+        # pil_image = Image.open(BytesIO(byte_array))
+        # pil_image.show()
         raw_textract_resp = hit_textract_api(byte_array)
         t2 = datetime.now()
         d1 = t2 - t1
         print("Time for Textract to complete OCR", d1)
         # TODO create sha256 hash for img and save image to cloud storage
-        # save raw_resp to raw_ocr library + TODO image hash
+        # save raw_resp to raw_ocr library
         with open("src/rawocr.json", "w") as f:
-            raw_ocr_library[erg_photo_filename] = raw_textract_resp
+            # TODO: delete row below
+            # raw_ocr_library[erg_photo_filename] = raw_textract_resp
+            raw_ocr_library[photo_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
     # TODO return image_hash too
     processed_data = process_raw_ocr(raw_textract_resp, photo_hash)
@@ -62,7 +72,6 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     if blob.exists():
         print("Duplicate: blob already exists in bucket")
     else:
-        # pdb.set_trace()
         blob.upload_from_string(image_bytes, "image/jpeg")
         print(f"{image_hash} uploaded to {bucket_name}.")
 
