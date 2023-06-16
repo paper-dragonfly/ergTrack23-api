@@ -10,6 +10,10 @@ RUN pip install --no-cache-dir --upgrade -r /ergtrack23api/requirements.txt
 # add files
 RUN mkdir -p ./src
 RUN mkdir -p ./config
+RUN mkdir -p ./alembic
+COPY alembic alembic
+COPY alembic.ini .
+COPY db_init_docker.py .
 COPY config/key_gcloud_ergtrack23_api_sa2.json config
 COPY config/config.yaml config 
 # comment out ^ in prod
@@ -23,11 +27,13 @@ ARG AWS_SECRET_ACCESS_KEY
 ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-ENV DEV_ENV=prod
+#  over riding DEV_ENV in docker compose
+ENV DEV_ENV=prod  
 ENV GOOGLE_APPLICATION_CREDENTIALS=./config/key_gcloud_ergtrack23_api_sa2.json
 ENV AWS_DEFAULT_REGION=us-east-1
 ENV PORT=8080
 
 EXPOSE $PORT
+# over riding in docker compose
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
 

@@ -1,0 +1,26 @@
+services:
+  db_container:
+    image: postgres:14.8
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres-docker
+      - POSTGRES_PASSWORD=postgres-docker-pw
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  api:
+    build: . #find dockerfile in this dir and build docker image
+    depends_on:
+      - db_container
+    ports:
+      - "8080:8080"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - DEV_ENV=docker_compose
+    command: sh -c "python db_init_docker.py && alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8080"
+
+volumes:
+  db:
+    driver: local

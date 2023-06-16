@@ -90,7 +90,7 @@ async def read_login(authorization: str = Header(...)):
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        # time.sleep(5.0)
+        time.sleep(2.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
