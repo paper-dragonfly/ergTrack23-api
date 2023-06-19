@@ -43,12 +43,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# initialize Firebase Admin SDK
-# Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
-# cred = credentials.Certificate("config/ergtracker-firebase-adminsdk.json")
-cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-firebase_admin.initialize_app(cred)
-
 # Load config file values
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
@@ -56,9 +50,17 @@ with open("config/config.yaml", "r") as f:
 # set db connection string based on run environment
 DEV_ENV = os.getenv("DEV_ENV")
 CONN_STR = config_data["db_conn_str"][DEV_ENV]
-
-
 SECRET_STRING = config_data["SECRET_STRING"]
+GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
+os.environ['AWS_ACCESS_KEY_ID'] = config_data['AWS_ACCESS_KEY_ID']
+os.environ['AWS_SECRET_ACCESS_KEY'] = config_data['AWS_SECRET_ACCESS_KEY']
+
+# initialize Firebase Admin SDK
+# Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
+# cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+cred = credentials.Certificate(GCLOUD_SA_KEY)
+firebase_admin.initialize_app(cred)
+
 
 # sqlalchemy setup
 engine = create_engine(CONN_STR, echo=True)
@@ -90,7 +92,7 @@ async def read_login(authorization: str = Header(...)):
     try:
         # hack fix added delay - TODO find better  solution
         print(datetime.now())
-        # time.sleep(5.0)
+        time.sleep(2.0)
         print(datetime.now())
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
