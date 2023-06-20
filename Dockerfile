@@ -20,16 +20,9 @@ COPY config/config.yaml config
 COPY README.md .
 COPY src src 
 
-# AWS keys ->  move to secure location
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_SECRET_ACCESS_KEY
 
-ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-
-#  over riding DEV_ENV in docker compose
+#  this DEV_ENV is over-written in docker compose
 ENV DEV_ENV=prod  
-ENV GOOGLE_APPLICATION_CREDENTIALS=./config/key_gcloud_ergtrack23_api_sa2.json
 ENV AWS_DEFAULT_REGION=us-east-1
 ENV PORT=8080
 
