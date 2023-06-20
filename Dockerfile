@@ -9,14 +9,10 @@ RUN pip install --no-cache-dir --upgrade -r /ergtrack23api/requirements.txt
 
 # add files
 RUN mkdir -p ./src
-RUN mkdir -p ./config
 RUN mkdir -p ./alembic
 COPY alembic alembic
 COPY alembic.ini .
 COPY db_init_docker.py .
-COPY config/key_gcloud_ergtrack23_api_sa2.json config
-COPY config/config.yaml config 
-# comment out ^ in prod
 COPY README.md .
 COPY src src 
 
