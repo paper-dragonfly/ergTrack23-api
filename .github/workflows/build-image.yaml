@@ -1,14 +1,13 @@
 name: Build and Push to Google Artifact Registry
 
-on:
-  push:
-    branches:
-      - main
+on: pull_request
 
 env:
+  REGION: us-central1-docker.pkg.dev
   PROJECT_ID: ergtracker
   REGISTRY_NAME: ergtrack-api-github-actions
   IMAGE_NAME: api
+  BRANCH_NAME: ga-test-branch
 
 jobs:
   build-and-push:
@@ -24,7 +23,7 @@ jobs:
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v1 
         with:
-          registry: ${{ env.REGISTRY_NAME }}-${{ env.PROJECT_ID }}.pkg.dev
+          registry: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}
           username: _json_key
           password: ${{ secrets.ERGTRACK23_API_SA2 }}
 
@@ -33,4 +32,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY_NAME }}-${{ env.PROJECT_ID }}.pkg.dev/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest
+          tags: ${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.BRANCH_NAME }}
