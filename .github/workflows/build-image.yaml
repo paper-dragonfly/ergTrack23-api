@@ -7,7 +7,6 @@ env:
   PROJECT_ID: ergtracker
   REGISTRY_NAME: ergtrack-api-github-actions
   IMAGE_NAME: api
-  BRANCH_NAME: ga-test-branch
 
 jobs:
   build-and-push:
@@ -16,6 +15,11 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v2
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -32,4 +36,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.BRANCH_NAME }}
+          tags: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.extract_branch.outputs.branch }}
