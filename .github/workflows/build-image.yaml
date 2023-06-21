@@ -28,7 +28,7 @@ jobs:
           password: ${{ secrets.ERGTRACK23_API_SA2 }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         with:
           context: .
           push: true
