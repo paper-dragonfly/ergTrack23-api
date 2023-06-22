@@ -41,6 +41,8 @@ jobs:
           context: .
           push: false
           tags: ${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-test
+          cache-from: type=registry,ref=${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-cache
+          cache-to: type=registry,ref=${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-cache
       
       - name: Run tests
         run: |
