@@ -1,12 +1,15 @@
+# TODO add QEMU if you want to build an image for non-linux platforms
+# TODO build test image from cache
+
 name: Build and Push to Google Artifact Registry
 
 on: pull_request
 
 env:
-  REGION: us-central1-docker.pkg.dev
-  PROJECT_ID: ergtracker
-  REGISTRY_NAME: ergtrack-api-github-actions
-  IMAGE_NAME: api
+  GCP_HOST: us-central1-docker.pkg.dev
+  GCP_PROJECT_ID: ergtracker
+  GCP_REGISTRY: ergtrack-api-github-actions
+  IMAGE: api
 
 jobs:
   build-and-push:
@@ -27,24 +30,26 @@ jobs:
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v1 
         with:
-          registry: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}
+          registry: ${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}
           username: _json_key
           password: ${{ secrets.ERGTRACK23_API_SA2 }}
 
-      - name: Build and push Docker test image
+      # WARNING: No output specified with docker-container driver. Build result will only remain in the build cache. To push result image into registry use --push or to load image into docker use --load
+      - name: Build Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: false
-          tags: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.extract_branch.outputs.branch }}-test
+          tags: ${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-test
       
       - name: Run tests
         run: |
           echo 'WARNING: test invocation is missing.'
 
-      - name: Build and push
+      # this uses the cached image from the previous step
+      - name: Push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: ${{ env.REGION }}/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ steps.extract_branch.outputs.branch }}
+          tags: ${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}
