@@ -50,7 +50,7 @@ jobs:
   
       - name: Push Docker image if main branch
         uses: docker/build-push-action@v4
-        if: ${{ steps.extract_branch.outputs.branch }} == 'main'
+        if: ${{ steps.extract_branch.outputs.branch == 'main' }}
         with:
           context: .
           push: true
