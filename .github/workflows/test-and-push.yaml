@@ -3,7 +3,11 @@
 
 name: Test and Push to Google Artifact Registry
 
-on: pull_request
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
 
 env:
   GCP_HOST: us-central1-docker.pkg.dev
