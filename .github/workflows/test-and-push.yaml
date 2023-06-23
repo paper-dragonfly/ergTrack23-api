@@ -1,0 +1,57 @@
+# TODO add QEMU if you want to build an image for non-linux platforms
+# TODO build test image from cache
+
+name: Test and Push to Google Artifact Registry
+
+on: pull_request
+
+env:
+  GCP_HOST: us-central1-docker.pkg.dev
+  GCP_PROJECT_ID: ergtracker
+  GCP_REGISTRY: ergtrack-api-github-actions
+  IMAGE: api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Google Artifact Registry
+        uses: docker/login-action@v1 
+        with:
+          registry: ${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ERGTRACK23_API_SA2 }}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          tags: this-dont-matter-cuz-it-aint-pushed
+          cache-from: type=registry,ref=${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-cache
+          cache-to: type=registry,ref=${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}-cache
+          outputs: type=docker
+      
+      - name: Run tests
+        run: |
+          echo 'WARNING: test invocation is missing.'
+  
+      - name: Push Docker image if main branch
+        uses: docker/build-push-action@v4
+        if: ${{ steps.extract_branch.outputs.branch == 'main' }}
+        with:
+          context: .
+          push: true
+          tags: ${{ env.GCP_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_REGISTRY }}/${{ env.IMAGE }}:${{ steps.extract_branch.outputs.branch }}
