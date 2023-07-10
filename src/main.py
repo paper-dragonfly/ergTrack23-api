@@ -51,14 +51,14 @@ with open("config/config.yaml", "r") as f:
 DEV_ENV = os.getenv("DEV_ENV")
 CONN_STR = config_data["db_conn_str"][DEV_ENV]
 SECRET_STRING = config_data["SECRET_STRING"]
-GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
+# GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
 os.environ['AWS_ACCESS_KEY_ID'] = config_data['AWS_ACCESS_KEY_ID']
 os.environ['AWS_SECRET_ACCESS_KEY'] = config_data['AWS_SECRET_ACCESS_KEY']
 
 # initialize Firebase Admin SDK
 # Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
-# cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-cred = credentials.Certificate(GCLOUD_SA_KEY)
+cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+# cred = credentials.Certificate(GCLOUD_SA_KEY) # I don't think this is right, points to file name not path. 
 firebase_admin.initialize_app(cred)
 
 
