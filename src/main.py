@@ -57,9 +57,10 @@ os.environ['AWS_SECRET_ACCESS_KEY'] = config_data['AWS_SECRET_ACCESS_KEY']
 
 # initialize Firebase Admin SDK
 # Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
-cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
+# cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 # cred = credentials.Certificate(GCLOUD_SA_KEY) # I don't think this is right, points to file name not path. 
-firebase_admin.initialize_app(cred)
+# when no 'cred' given, searches for default
+firebase_admin.initialize_app()
 
 
 # sqlalchemy setup
