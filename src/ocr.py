@@ -2,10 +2,19 @@ from typing import List, Dict, Union
 import pandas as pd
 import boto3
 import pdb
+import yaml
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 from src.schemas import CustomError
 
-client = boto3.client("textract", region_name="us-east-1")
+# Load config file values
+with open("config/config.yaml", "r") as f:
+    config_data = yaml.load(f, Loader=yaml.FullLoader)
+
+ACCESS_KEY = config_data["AWS_ACCESS_KEY_ID"]
+SECRET_KEY = config_data["AWS_SECRET_ACCESS_KEY"]
+
+client = boto3.client("textract", aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY,region_name="us-east-1")
 
 
 def hit_textract_api(erg_image_bytearray):
