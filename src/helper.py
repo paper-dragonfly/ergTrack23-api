@@ -1,6 +1,7 @@
 import pdb
 from typing import Union, List, Tuple, Dict
 import json
+import math
 from src.schemas import WorkoutLogSchema
 from google.cloud import storage
 from hashlib import sha256
@@ -84,3 +85,33 @@ def process_outgoing_workouts(workouts: List[WorkoutLogSchema]) -> List[dict]:
         wo_dict = {k: v for k, v in wo.__dict__.items() if not k.startswith("_")}
         workouts_outgoing_list.append(wo_dict)
     return workouts_outgoing_list
+
+
+def duration_to_seconds(duration:str) -> float:
+    time_components = duration.split(':')
+    time_components = [float(item) for item in time_components]
+    seconds = 0
+    
+    seconds = time_components.pop(); 
+    if len(time_components):
+        minutes = time_components.pop()
+        seconds += minutes * 60
+    
+    if len(time_components):
+        hour = time_components.pop()
+        seconds += minutes * 3600
+    
+    return seconds
+
+
+def calculate_watts(split: str) -> int:
+    pace = duration_to_seconds(split)/500
+    watts = math.ceil(2.8/pace**3)
+    return watts
+
+
+def calculate_cals(time: str, watts: float) -> int:
+    time_hour = duration_to_seconds(time)/3600
+    cal = math.ceil(watts/1000 * time_hour * 860 * 4 + 300)
+    return cal
+
