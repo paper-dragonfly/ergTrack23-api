@@ -76,6 +76,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
     table_data = []
     block_text_ids = []
     for block in cell_blocks:
+        #for rows with data (i.e. not column headings) 
         if not block["RowIndex"] == time_row_index:
             try:
                 for id in block["Relationships"][0]["Ids"]:
@@ -83,7 +84,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
             except KeyError:
                 continue
     # Empty first row
-    for c in range(4):
+    for c in range(5):
         cell_data = {
             "row": 1,
             "col": c + 1,
@@ -93,13 +94,13 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
         table_data.append(cell_data)
     # find num rows (last rowindex - 'time' rowIndex)
     num_rows = cell_blocks[-1]["RowIndex"] - time_row_index
-    # create a 4 column x R rows empty table.
+    # create a 5 column x R rows empty table.
     i = 0
-    for r in range(num_rows - 1):  # -1 because first row is blank
-        for c in range(4):
+    for r in range(1,num_rows):  # fm 1 because first row is blank
+        for c in range(1,6): #cols 1-5
             cell_data = {
-                "row": r + 1,
-                "col": c + 1,
+                "row": r,
+                "col": c,
                 "text": [word_index[block_text_ids[i]]],
                 "text_id": [block_text_ids[i]],
             }
@@ -110,7 +111,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
 
 
 def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
-    # if previous block didn't corect empty cell, add empty entry - see FIX  below
+    # if previous block didn't correct empty cell, add empty entry - see FIX  below
     if not (
         table_data[-1]["row"] == block["RowIndex"]
         and table_data[-1]["col"] == block["ColumnIndex"]
@@ -142,9 +143,9 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]
 
         if not 1 < num_cols < 6:
             raise CustomError("extract_table_data failed, invalid column count")
-        # if num cols is 2 or three:
+        # if num cols is 2 or three seperate merged cols:
         if num_cols < 4:
-            table_data = process_merged_cols(cell_blocks, time_row_index, word_index)
+            table_data = process_merged_cols(cell_blocks, time_row_index, word_index) # TODO: come back to add HR
         else:
             table_data = []
             for block in cell_blocks:

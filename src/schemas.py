@@ -43,6 +43,7 @@ class WorkoutDataReturn(BaseModel):
     meter: List[str]
     split: List[str]
     sr: List[str]
+    hr: List[str] 
 
 
 class OcrDataReturn(BaseModel):
