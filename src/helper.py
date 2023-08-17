@@ -99,7 +99,7 @@ def duration_to_seconds(duration:str) -> float:
     
     if len(time_components):
         hour = time_components.pop()
-        seconds += minutes * 3600
+        seconds += hour * 3600
     
     return seconds
 

@@ -23,7 +23,7 @@ def hit_textract_api(erg_image_bytearray):
             Document={"Bytes": erg_image_bytearray}, FeatureTypes=["TABLES"]
         )
     except Exception as e:
-        raise CustomError(f"extract_table_data failed, {e}")
+        raise CustomError(f"hit_textract_api failed, {e}")
 
 
 # Extract Workout Data - Create List[dict] with table data: row, column, text, text_id
@@ -133,6 +133,8 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]
             if block["BlockType"] == "CELL"
         ]
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
+        print('blocks before time removed')
+        print('cell blocks len', len(cell_blocks))
 
         # CHECK number of columns
         num_cols = cell_blocks[-1]["ColumnIndex"]
@@ -171,6 +173,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]
                                 "text_id": [cell_data["text_ids"][-1]],
                             }
                         )
+                # print(table_data)
         # print(table_data)
         return table_data
     except Exception as e:
