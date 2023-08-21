@@ -237,7 +237,7 @@ async def create_workout(
     Add workout data to ergTrack db
     Retruns: success message
     """
-    # pdb.set_trace()
+    pdb.set_trace()
     # confirm data coming from valid user
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
@@ -259,6 +259,7 @@ async def create_workout(
                 meter=workoutData.tableMetrics[0]["distance"],
                 split=workoutData.tableMetrics[0]["split"],
                 stroke_rate=workoutData.tableMetrics[0]["strokeRate"],
+                heart_rate = workoutData.tableMetrics[0]["heartRate"], 
                 watts = watts,
                 cal = calories,
                 image_hash=workoutData.photoHash,

@@ -32,7 +32,7 @@ def get_processed_ocr_data(
         raw_ocr_library = json.load(f)
     library_entries = raw_ocr_library.keys()
     # var below used for testing ocr - changee to True for Prod
-    search_library = False
+    search_library = True
     # If yes -> grab raw response
     if search_library and erg_photo_filename in library_entries:
         # TODO: change all current images in library to have sha256
