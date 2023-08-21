@@ -31,13 +31,15 @@ def get_processed_ocr_data(
     with open("src/rawocr.json", "r") as f:
         raw_ocr_library = json.load(f)
     library_entries = raw_ocr_library.keys()
+    # var below used for testing ocr - changee to True for Prod
+    search_library = False
     # If yes -> grab raw response
-    if erg_photo_filename in library_entries:
+    if search_library and erg_photo_filename in library_entries:
         # TODO: change all current images in library to have sha256
         # get raw data using image file_name
         raw_textract_resp = raw_ocr_library[erg_photo_filename]
         t2 = datetime.now()
-    elif photo_hash in library_entries:
+    elif search_library and photo_hash in library_entries:
         # get raw data using photo_hash
         raw_textract_resp = raw_ocr_library[photo_hash]
         t2 = datetime.now()
@@ -115,3 +117,7 @@ def calculate_cals(time: str, watts: float) -> int:
     cal = math.ceil(watts/1000 * time_hour * 860 * 4 + 300)
     return cal
 
+def insert_every_n_indices(lst, item, n):
+    for i in range(len(lst) // n):
+        index = (i + 1) * n + i
+        lst.insert(index, item)

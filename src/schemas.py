@@ -43,14 +43,14 @@ class WorkoutDataReturn(BaseModel):
     meter: List[str]
     split: List[str]
     sr: List[str]
-    hr: List[str] 
+    hr: List[str] = None
 
 
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
     photo_hash: str
-
+    
 
 # API Response Obj
 class Response(BaseModel):
@@ -77,3 +77,9 @@ class WorkoutLogSchema(BaseModel):
 
 class CustomError(Exception):
     pass
+
+class CellData(BaseModel):
+    row: str
+    col: str 
+    text: list
+    text_ids: list

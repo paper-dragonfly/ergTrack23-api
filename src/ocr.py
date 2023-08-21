@@ -4,7 +4,7 @@ import boto3
 import pdb
 import yaml
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
-from src.schemas import CustomError
+from src.schemas import CustomError, CellData
 
 # Load config file values
 with open("config/config.yaml", "r") as f:
@@ -72,8 +72,8 @@ def remove_blocks_before_time(word_index, cell_blocks) -> dict:
 
 
 def process_merged_cols(cell_blocks, time_row_index, word_index):
-    # create a list of all the ids
     table_data = []
+    # create a list of all the ids for words corresponding to workout data (no col heads)
     block_text_ids = []
     for block in cell_blocks:
         #for rows with data (i.e. not column headings) 
@@ -83,7 +83,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
                     block_text_ids.append(id)
             except KeyError:
                 continue
-    # Empty first row
+    # Create first row - will become column headings in future function
     for c in range(5):
         cell_data = {
             "row": 1,
@@ -112,6 +112,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
 
 def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
     # if previous block didn't correct empty cell, add empty entry - see FIX  below
+    # fix (i.e. not needed) would apply if SR had been lumped in with split
     if not (
         table_data[-1]["row"] == block["RowIndex"]
         and table_data[-1]["col"] == block["ColumnIndex"]
@@ -125,7 +126,7 @@ def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
     return False
 
 
-def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]:
+def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellData]:
     try:
         # create list of cell  blocks
         cell_blocks: List[dict] = [
@@ -145,16 +146,17 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]
             raise CustomError("extract_table_data failed, invalid column count")
         # if num cols is 2 or three seperate merged cols:
         if num_cols < 4:
+            print("Merged cols detected")
             table_data = process_merged_cols(cell_blocks, time_row_index, word_index) # TODO: come back to add HR
-        else:
+        else: 
             table_data = []
             for block in cell_blocks:
-                #  if cell is empty, add empty entry. Ignore HR column.
-                if not "Relationships" in block.keys() and block["ColumnIndex"] < 5:
+                #  if cell is empty, add empty entry. 
+                if not "Relationships" in block.keys():
                     cell_data = add_empty_cell_if_needed(table_data, block)
                     if cell_data:
                         table_data.append(cell_data)
-                # deal with cells in columns 1-4 that have content
+                # deal with cells in columns 1-5 that have content
                 elif "Relationships" in block.keys():
                     cell_data = {"row": None, "col": None, "text": [], "text_ids": []}
                     cell_data["row"] = block["RowIndex"]
@@ -174,8 +176,31 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[dict]
                                 "text_id": [cell_data["text_ids"][-1]],
                             }
                         )
-                # print(table_data)
-        # print(table_data)
+                    # FIX SR gets lumped in with HR either as two words or as one (* assumes len(sr)==2, len(hr)==3)
+                    if block["ColumnIndex"] == 5 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
+                        # cell most recently added to table_data will be missing text - populate it from this HR cell
+                        if len(cell_data["text_ids"]) > 1:
+                            table_data[-2]["text"][0] = cell_data['text'][0]
+                            table_data[-2]["text_ids"] = ['from HR'] #not neccessary but helpful for debugging 
+                            del table_data[-1]["text"][0]
+                            del table_data[-1]["text_ids"][0] #not neccessary but cleaner
+                        else: 
+                            sr = cell_data['text'][0][:2]
+                            hr = cell_data["text"][0][2:].strip()
+                            table_data[-2]["text"][0] = sr
+                            table_data[-2]["text_ids"] = ['from HR'] #not neccessary - helpful for debugging
+                            table_data[-1]["text"][0] = hr
+                            table_data[-1]["text_ids"] = ['altered - SRHR split'] #not neccessary - helpful for debugging
+            # Add HR col - all empty
+            if num_cols == 4:
+                for i in range(len(table_data) // 5):
+                    cell_data = {
+                        "row": i+1,
+                        "col": 5,
+                        "text": [""],
+                    }
+                    index = (i + 1) * 5 + i
+                    table_data.insert(index, cell_data)  
         return table_data
     except Exception as e:
         raise CustomError(f"extract_table_data failed, {e}")
@@ -187,10 +212,12 @@ def clean_table_data(table_data: List[dict]):
         # remove all cells before 'time'
         while "time" not in table_data[0]["text"]:
             del table_data[0]
+        #add col headings
         table_data[0]["text"] = ["time"]
         table_data[1]["text"] = ["meter"]
         table_data[2]["text"] = ["split"]
         table_data[3]["text"] = ["sr"]
+        table_data[4]["text"] = ["hr"]
         for cell in table_data:
             for word in cell["text"]:
                 if "," in word:
@@ -205,7 +232,7 @@ def clean_table_data(table_data: List[dict]):
 def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
     try:
         col_head_row = wo_clean[0]["row"]
-        wo_dict = {"time": [], "meter": [], "split": [], "sr": []}
+        wo_dict = {"time": [], "meter": [], "split": [], "sr": [], "hr": []}
         for cell in wo_clean:
             if cell["row"] > col_head_row:
                 if cell["col"] == 1:
@@ -216,6 +243,8 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                     wo_dict["split"].append(cell["text"][0])
                 elif cell["col"] == 4:
                     wo_dict["sr"].append(cell["text"][0])
+                elif cell["col"] == 5:
+                    wo_dict["hr"].append(cell["text"][0])
         return wo_dict
     except Exception as e:
         raise CustomError("compile_workout_data failed, invalid column count")
