@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Date,
     Boolean,
+    Float
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import JSON
@@ -68,6 +69,7 @@ class WorkoutLogTable(Base):
     split = Column(String)
     stroke_rate = Column(Integer)
     heart_rate = Column(Integer)
+    split_variance = Column(Float)
     watts = Column(Integer)
     cal = Column(Integer) 
     image_hash = Column(String)
@@ -75,7 +77,7 @@ class WorkoutLogTable(Base):
     comment = Column(String)
 
     def __repr__(self):
-        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
+        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, heart_rate={self.heart_rate}, split_variance={self.split_variance}, watts={self.watts}, cal={self.cal}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
     
 class TeamTable(Base):
     __tablename__ = 'team'
@@ -84,11 +86,10 @@ class TeamTable(Base):
         Integer,
         Sequence("team_team_id_seq"),
         primary_key=True,
-        server_default="nextval('tam_team_id_seq')"
-    ),
-    team_name = Column(String),
+        server_default="nextval('team_team_id_seq')"
+    )
+    team_name = Column(String)
     team_code = Column(String)
 
     def __repr__(self):
         return f"<TeamTable(team_id={self.team_id}, team_name={self.team_name}, team_code={self.team_code})>"
-
