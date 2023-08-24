@@ -67,6 +67,7 @@ class WorkoutLogTable(Base):
     meter = Column(Integer)
     split = Column(String)
     stroke_rate = Column(Integer)
+    heart_rate = Column(Integer)
     watts = Column(Integer)
     cal = Column(Integer) 
     image_hash = Column(String)
