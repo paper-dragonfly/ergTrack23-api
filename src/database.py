@@ -76,3 +76,19 @@ class WorkoutLogTable(Base):
 
     def __repr__(self):
         return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
+    
+class TeamTable(Base):
+    __tablename__ = 'team'
+
+    team_id = Column(
+        Integer,
+        Sequence("team_team_id_seq"),
+        primary_key=True,
+        server_default="nextval('tam_team_id_seq')"
+    ),
+    team_name = Column(String),
+    team_code = Column(String)
+
+    def __repr__(self):
+        return f"<TeamTable(team_id={self.team_id}, team_name={self.team_name}, team_code={self.team_code})>"
+
