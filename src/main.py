@@ -29,7 +29,13 @@ from src.utils import (
     get_user_id,
 )
 from src.database import UserTable, WorkoutLogTable
-from src.helper import process_outgoing_workouts, upload_blob, get_processed_ocr_data, calculate_watts, calculate_cals
+from src.helper import (
+    process_outgoing_workouts, 
+    upload_blob, 
+    get_processed_ocr_data, 
+    calculate_watts, 
+    calculate_cals,
+    calculate_split_var)
 
 app = FastAPI()
 
@@ -243,6 +249,7 @@ async def create_workout(
     if not auth_uid:
         return Response(status_code=401, error_message="Unauthorized Request")
     print(workoutData)
+    split_var = calculate_split_var(workoutData.tableMetrics)
     watts = calculate_watts(workoutData.tableMetrics[0]["split"])
     calories = calculate_cals(workoutData.tableMetrics[0]["time"], watts)
     with Session() as session:
@@ -259,7 +266,8 @@ async def create_workout(
                 meter=workoutData.tableMetrics[0]["distance"],
                 split=workoutData.tableMetrics[0]["split"],
                 stroke_rate=workoutData.tableMetrics[0]["strokeRate"],
-                heart_rate = workoutData.tableMetrics[0]["heartRate"], 
+                heart_rate = workoutData.tableMetrics[0]["heartRate"],
+                split_variance = split_var,
                 watts = watts,
                 cal = calories,
                 image_hash=workoutData.photoHash,

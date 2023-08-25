@@ -70,6 +70,9 @@ class WorkoutLogSchema(BaseModel):
     split: str
     stroke_rate: int
     heart_rate: int
+    split_variance: float
+    watts: int
+    cal: int
     image_hash: Optional[str] = None
     subworkouts: List[dict]
     comment: str

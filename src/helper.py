@@ -121,3 +121,16 @@ def insert_every_n_indices(lst, item, n):
     for i in range(len(lst) // n):
         index = (i + 1) * n + i
         lst.insert(index, item)
+
+def calculate_split_var(workout_metrics):
+    #get split for each subworkout
+    splits = []
+    for i in range(1,len(workout_metrics)):
+        split_sec = duration_to_seconds(workout_metrics[i]['split'])
+        splits.append(split_sec)
+    if not splits:
+        return 0
+    split_var = round(max(splits) - min(splits),1)
+    print('split_var: ', split_var)
+    return split_var
+    
