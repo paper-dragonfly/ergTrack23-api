@@ -33,6 +33,8 @@ class UserTable(Base):
     para_class = Column(String)
     country = Column(String)
     joined = Column(Date, server_default="now()")
+    team = Column(Integer, ForeignKey("team.team_id"))
+    team_admin = Column(Boolean)
 
     def __repr__(self):
         return (
@@ -75,6 +77,7 @@ class WorkoutLogTable(Base):
     image_hash = Column(String)
     subworkouts = Column(JSON)
     comment = Column(String)
+    post_to_team = Column(Boolean)
 
     def __repr__(self):
         return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, heart_rate={self.heart_rate}, split_variance={self.split_variance}, watts={self.watts}, cal={self.cal}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
