@@ -207,7 +207,6 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                             table_data[-1]["text_ids"] = ['altered - SRHR split'] #not neccessary - helpful for debugging
             # Add HR col - all empty
             if num_cols == 4:
-                pdb.set_trace()
                 for i in range(len(table_data) // 4):
                     hr_index = (i + 1) * 5 -1
                     first_data_row = table_data[0]['row']
@@ -224,7 +223,6 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
 
 # clean workout data - replace column labels & change "," for "."
 def clean_table_data(table_data: List[dict]):
-    pdb.set_trace()
     try:
         # remove all cells before 'time'
         while "time" not in table_data[0]["text"]:
