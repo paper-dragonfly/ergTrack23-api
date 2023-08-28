@@ -84,7 +84,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
             except KeyError:
                 continue
     # Create first row - will become column headings in future function
-    for c in range(5):
+    for c in range(6):
         cell_data = {
             "row": 1,
             "col": c + 1,
@@ -94,18 +94,32 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
         table_data.append(cell_data)
     # find num rows (last rowindex - 'time' rowIndex)
     num_rows = cell_blocks[-1]["RowIndex"] - time_row_index
-    # create a 5 column x R rows empty table.
+    # determin if HR is in data by checking if 5th word is int (i.e. HR) or str(time row2)
+    hr_present = True
+    try:
+        int(word_index[block_text_ids[4]])
+    except ValueError:
+        hr_present = False 
+
     i = 0
     for r in range(1,num_rows):  # fm 1 because first row is blank
         for c in range(1,6): #cols 1-5
-            cell_data = {
-                "row": r,
-                "col": c,
-                "text": [word_index[block_text_ids[i]]],
-                "text_id": [block_text_ids[i]],
-            }
+            #add empty HR cell - no HR data
+            if not hr_present and c == 5: 
+                cell_data = {
+                    "row": r,
+                    "col": 5,
+                    "text": [""], 
+                }
+            else:
+                cell_data = {
+                    "row": r,
+                    "col": c,
+                    "text": [word_index[block_text_ids[i]]],
+                    "text_id": [block_text_ids[i]],
+                }
+                i += 1
             table_data.append(cell_data)
-            i += 1
     print(table_data)
     return table_data
 
@@ -193,14 +207,15 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                             table_data[-1]["text_ids"] = ['altered - SRHR split'] #not neccessary - helpful for debugging
             # Add HR col - all empty
             if num_cols == 4:
-                for i in range(len(table_data) // 5):
+                for i in range(len(table_data) // 4):
+                    hr_index = (i + 1) * 5 -1
+                    first_data_row = table_data[0]['row']
                     cell_data = {
-                        "row": i+1,
+                        "row": first_data_row + i,
                         "col": 5,
                         "text": [""],
                     }
-                    index = (i + 1) * 5 + i
-                    table_data.insert(index, cell_data)  
+                    table_data.insert(hr_index, cell_data)  
         return table_data
     except Exception as e:
         raise CustomError(f"extract_table_data failed, {e}")
