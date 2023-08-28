@@ -23,6 +23,8 @@ class PostWorkoutSchema2(BaseModel):
 class PutUserSchema(BaseModel):
     user_name: str
     email: str
+    team: Optional[str] = None
+    team_admin: Optional[bool] = None
     country: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[int] = None
@@ -76,6 +78,7 @@ class WorkoutLogSchema(BaseModel):
     image_hash: Optional[str] = None
     subworkouts: List[dict]
     comment: str
+    post_to_team: Optional[bool]  
 
 
 class CustomError(Exception):

@@ -28,7 +28,7 @@ from src.utils import (
     validate_user_token,
     get_user_id,
 )
-from src.database import UserTable, WorkoutLogTable
+from src.database import UserTable, WorkoutLogTable, TeamTable
 from src.helper import (
     process_outgoing_workouts, 
     upload_blob, 
@@ -273,6 +273,8 @@ async def create_workout(
                 image_hash=workoutData.photoHash,
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
+                # TODO: add postToTeam to woMeetaData on react side
+                post_to_team = workoutData.woMetaData['postToTeam']
             )
 
             # use sqlAlchemy to add entryy to db
@@ -302,6 +304,32 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
             return Response(body={"message": "delete successful"})
         except Exception as e:
             return Response(status_code=500, error_message=e)
+
+
+@app.get("/team")
+async def read_team(authorization: str = Header(...)):
+    """
+    Receives userToken 
+    Uses token to get user_id, queries user table for team_id
+    returns: if user is on team - info for team matching team_id + if admin 
+    """
+    # pdb.set_trace()
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session)
+            user_info = session.query(UserTable).get(user_id).__dict__
+            if user_info['team']:
+                team_info = session.query(TeamTable).get(user_info['team']).__dict__
+                admin = user_info['team_admin']
+                return Response(body={'team_member': True, 'team_info': team_info, 'team_admin': admin})
+            else:
+                return Response(body={'team_member' : False})     
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
 
 
 @app.post("/sandbox")
