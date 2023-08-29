@@ -21,6 +21,7 @@ from src.schemas import (
     OcrDataReturn,
     WorkoutLogSchema,
     Response,
+    PutUserSchema,
     PatchUserSchema,
     PostTeamDataSchema
 )
@@ -159,8 +160,8 @@ async def read_user(authorization: str = Header(...)):
         return Response(status_code=500, error_message=e)
 
 
-@app.patch("/user")
-async def update_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
+@app.put("/user")
+async def update_user(new_user_info: PutUserSchema, authorization: str = Header(...)):
     """
     Recieves updated user data
     Updates database
@@ -179,6 +180,35 @@ async def update_user(new_user_info: PatchUserSchema, authorization: str = Heade
             # update user with new info
             for key, value in new_user_info:
                 setattr(user, key, value)
+            # UserTable[user] = new_user_info.dict()
+            session.commit()
+            return Response(body={"message": "user update succeessful"})
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
+    
+@app.patch("/user")
+async def update_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
+    """
+    Recieves updated user data - specifically team related for now
+    Updates database
+    Returns success message
+    """
+    # confirm data coming from valid user
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        print(new_user_info)
+        pdb.set_trace()
+        filtered_new_user_info = new_user_info.todict()
+        print(filtered_new_user_info)
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session)
+            user = session.query(UserTable).get(user_id)
+            # update user with new info
+            for key in filtered_new_user_info:
+                    setattr(user, key, filtered_new_user_info[key])
             # UserTable[user] = new_user_info.dict()
             session.commit()
             return Response(body={"message": "user update succeessful"})

@@ -20,16 +20,37 @@ class PostWorkoutSchema2(BaseModel):
     ergImg: Optional[UploadFile] = File(None)
 
 
-class PatchUserSchema(BaseModel):
+class PutUserSchema(BaseModel):
     user_name: str
     email: str
-    team: Optional[str] = None
-    team_admin: Optional[bool] = None
     country: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[int] = None
     weight_class: Optional[str] = None
     para_class: Optional[str] = None
+
+
+class PatchUserSchema(BaseModel):
+    team: Optional[int]
+    team_admin: Optional[bool] 
+    user_name: Optional[str]
+    email: Optional[str]
+    country: Optional[str] 
+    sex: Optional[str] 
+    age: Optional[int] 
+    weight_class: Optional[str] 
+    para_class: Optional[str] 
+
+    def todict(self) -> dict:
+        filtered_new_user_info = {key: value for key, value in vars(self).items() if value is not None}
+        if "team" not in filtered_new_user_info:
+            filtered_new_user_info['team'] = None 
+        return filtered_new_user_info
+
+
+
+
+
 
 class PostTeamDataSchema(BaseModel):
     teamName: str
