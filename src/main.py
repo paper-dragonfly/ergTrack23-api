@@ -167,6 +167,7 @@ async def update_user(new_user_info: PatchUserSchema, authorization: str = Heade
     Returns success message
     """
     # confirm data coming from valid user
+    pdb.set_trace()
     print(new_user_info)
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
@@ -332,6 +333,7 @@ async def read_team(authorization: str = Header(...)):
         print(e)
         return Response(status_code=500, error_message=e)
     
+
 @app.post("/team")
 async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
     """
@@ -345,27 +347,36 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
         return Response(status_code=401, error_message="Unauthorized Request")
     try:
         with Session() as session:
-            #add new team to team table
-            team_entry = TeamTable(
-                team_name = teamData.teamName,
-                team_code = teamData.teamCode
-            )
-            session.add(team_entry)
-            session.commit()
-            print('new team created')
-            new_team_id = team_entry.team_id
+            # Query to check if a team already exists - only needed in dev
+            new_team_id = session.query(TeamTable.team_id).filter(
+                TeamTable.team_name == teamData.teamName,
+                TeamTable.team_code == teamData.teamCode
+                ).first()[0]
+            if not new_team_id: 
+                #add new team to team table
+                team_entry = TeamTable(
+                    team_name = teamData.teamName,
+                    team_code = teamData.teamCode
+                )
+                session.add(team_entry)
+                session.commit()
+                print('new team created')
+                new_team_id = team_entry.team_id
             #update user's info
             user_id = get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
-            user_patch = {"team_id": new_team_id,"team_admin": True }
-            for key, val in user_patch:
-                setattr(user, key, val)
+            user_patch = {"team": new_team_id,"team_admin": True }
+            for key in user_patch:
+                setattr(user, key, user_patch[key])
+            pdb.set_trace()
             session.commit()
             return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=e)
 
+
+    
 
 
 @app.post("/sandbox")
