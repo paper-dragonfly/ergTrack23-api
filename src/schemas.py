@@ -20,7 +20,7 @@ class PostWorkoutSchema2(BaseModel):
     ergImg: Optional[UploadFile] = File(None)
 
 
-class PutUserSchema(BaseModel):
+class PatchUserSchema(BaseModel):
     user_name: str
     email: str
     team: Optional[str] = None
@@ -31,6 +31,9 @@ class PutUserSchema(BaseModel):
     weight_class: Optional[str] = None
     para_class: Optional[str] = None
 
+class PostTeamDataSchema(BaseModel):
+    teamName: str
+    teamCode: str
 
 ## function return schemas
 class CleanMetaReturn(BaseModel):

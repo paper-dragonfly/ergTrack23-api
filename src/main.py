@@ -21,7 +21,8 @@ from src.schemas import (
     OcrDataReturn,
     WorkoutLogSchema,
     Response,
-    PutUserSchema,
+    PatchUserSchema,
+    PostTeamDataSchema
 )
 from src.utils import (
     create_encrypted_token,
@@ -159,7 +160,7 @@ async def read_user(authorization: str = Header(...)):
 
 
 @app.patch("/user")
-async def update_user(new_user_info: PutUserSchema, authorization: str = Header(...)):
+async def update_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
     """
     Recieves updated user data
     Updates database
@@ -330,6 +331,41 @@ async def read_team(authorization: str = Header(...)):
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=e)
+    
+@app.post("/team")
+async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
+    """
+    Receives userToken, teamName, teamCode
+    Adds entry to Team Table (name and code), gets teamID
+    Adds teamID to team_id col for user  associated with userToken AND changes team_admin val to True
+    Returns team name, [V2 - all workouts for team] 
+    """
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        with Session() as session:
+            #add new team to team table
+            team_entry = TeamTable(
+                team_name = teamData.teamName,
+                team_code = teamData.teamCode
+            )
+            session.add(team_entry)
+            session.commit()
+            print('new team created')
+            new_team_id = team_entry.team_id
+            #update user's info
+            user_id = get_user_id(auth_uid, session)
+            user = session.query(UserTable).get(user_id)
+            user_patch = {"team_id": new_team_id,"team_admin": True }
+            for key, val in user_patch:
+                setattr(user, key, val)
+            session.commit()
+            return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
+
 
 
 @app.post("/sandbox")
