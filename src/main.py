@@ -168,7 +168,6 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
     Returns success message
     """
     # confirm data coming from valid user
-    pdb.set_trace()
     print(new_user_info)
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
@@ -200,12 +199,12 @@ async def update_user(new_user_info: PatchUserSchema, authorization: str = Heade
         return Response(status_code=401, error_message="Unauthorized Request")
     try:
         print(new_user_info)
-        pdb.set_trace()
         filtered_new_user_info = new_user_info.todict()
         print(filtered_new_user_info)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
+            # pdb.set_trace()
             # update user with new info
             for key in filtered_new_user_info:
                     setattr(user, key, filtered_new_user_info[key])
@@ -353,6 +352,7 @@ async def read_team(authorization: str = Header(...)):
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user_info = session.query(UserTable).get(user_id).__dict__
+            # pdb.set_trace()
             if user_info['team']:
                 team_info = session.query(TeamTable).get(user_info['team']).__dict__
                 admin = user_info['team_admin']
@@ -398,16 +398,72 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
             user_patch = {"team": new_team_id,"team_admin": True }
             for key in user_patch:
                 setattr(user, key, user_patch[key])
-            pdb.set_trace()
             session.commit()
             return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=e)
 
+@app.patch('/jointeam')   
+async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
+    '''
+    Receives userToken + team_name + team_code
+    Gets id for team matching name and code
+    Posts id into team col of user 
+    Returns confirmation
+    '''
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    try:
+        with Session() as session:
+            # Query to check if a team already exists - only needed in dev
+            team_id_result = session.query(TeamTable.team_id).filter(
+                TeamTable.team_name == teamData.teamName,
+                TeamTable.team_code == teamData.teamCode
+                ).first()
+            team_id = team_id_result[0] if team_id_result else None
+            if not team_id:
+                return Response(status_code=404, error_message='no team matching submitted credentials')
+            user_id = get_user_id(auth_uid, session)
+            user = session.query(UserTable).get(user_id)
+            # update user with team id
+            setattr(user, 'team', team_id)
+            # UserTable[user] = new_user_info.dict()
+            session.commit()
+            return Response(body={"message": "user update succeessful - team joined"})   
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
 
+
+@app.get('/teamlog')
+async def read_teamlog(authorization: str = Header(...)):
+    #check authorized request
+    auth_uid = validate_user_token(authorization)
+    if not auth_uid:
+        return Response(status_code=401, error_message="Unauthorized Request")
+    # get user_ids for team members
+    try:
+        with Session() as session:
+            # pdb.set_trace()
+            user_id = get_user_id(auth_uid, session)
+            team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+            team_members = session.query(UserTable.user_id).filter(UserTable.team == team_id).all()
+            # get workouts for team members where post_to_team == True
+            team_workouts = session.query(WorkoutLogTable).filter(
+                WorkoutLogTable.user_id.in_([member[0] for member in team_members]),
+                WorkoutLogTable.post_to_team == True
+            ).all()
+            workouts_processed: List[WorkoutLogSchema] = process_outgoing_workouts(
+                team_workouts
+            )
+            print(workouts_processed)
+            return Response(body={"team_workouts": workouts_processed})
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=e)
     
-
 
 @app.post("/sandbox")
 async def create_sandbox(
