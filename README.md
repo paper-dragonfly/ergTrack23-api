@@ -1,6 +1,6 @@
 # ergTrack23-api
 
-Backend for ergTrack app
+API for ergTrack app
 
 ### Command to run auth proxy
 
