@@ -79,14 +79,14 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
         print(f"{image_hash} uploaded to {bucket_name}.")
 
 
-def process_outgoing_workouts(workouts: List[WorkoutLogSchema]) -> List[dict]:
+def convert_class_instances_to_dicts(workouts: List[WorkoutLogSchema]) -> List[dict]:
     """Reformat workouts retrieved by sqlAlchemy query from list of class instances to list of dicts"""
     # converts list of class instances into list of dictionaries
-    workouts_outgoing_list = []
+    converted_list = []
     for wo in workouts:
         wo_dict = {k: v for k, v in wo.__dict__.items() if not k.startswith("_")}
-        workouts_outgoing_list.append(wo_dict)
-    return workouts_outgoing_list
+        converted_list.append(wo_dict)
+    return converted_list
 
 
 def duration_to_seconds(duration:str) -> float:
@@ -133,4 +133,12 @@ def calculate_split_var(workout_metrics):
     split_var = round(max(splits) - min(splits),1)
     print('split_var: ', split_var)
     return split_var
+
+
+def add_user_info_to_workout(workouts:List[dict], members:List[dict]) -> List[dict]:
+    for i in range(len(workouts)):
+        workouts[i]['user_name'] = members[i]['user_name']
+        workouts[i]['sex'] = members[i]['sex']
+        workouts[i]['age'] = members[i]['age']
+    return workouts 
     

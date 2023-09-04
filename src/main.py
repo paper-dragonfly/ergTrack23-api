@@ -32,12 +32,13 @@ from src.utils import (
 )
 from src.database import UserTable, WorkoutLogTable, TeamTable
 from src.helper import (
-    process_outgoing_workouts, 
+    convert_class_instances_to_dicts, 
     upload_blob, 
     get_processed_ocr_data, 
     calculate_watts, 
     calculate_cals,
-    calculate_split_var)
+    calculate_split_var,
+    add_user_info_to_workout)
 
 app = FastAPI()
 
@@ -111,10 +112,11 @@ async def read_login(authorization: str = Header(...)):
         with Session() as session:
             try:
                 existing_user = (
-                    session.query(UserTable.auth_uid)
+                    session.query(UserTable)
                     .filter_by(auth_uid=auth_uid)
-                    .scalar()
+                    .one_or_none()
                 )
+                team_id = existing_user.team
                 if not existing_user:
                     new_user = UserTable(
                         auth_uid=auth_uid,
@@ -123,6 +125,7 @@ async def read_login(authorization: str = Header(...)):
                     )
                     session.add(new_user)
                     session.commit()
+                    team_id = None
             except Exception as e:
                 message = "cannot validate user or cannot add user to db"
                 print(message)
@@ -137,7 +140,7 @@ async def read_login(authorization: str = Header(...)):
         return Response(
             status_code=400, error_message="no token recieved or other issue"
         )
-    return Response(body={"user_token": encrypted_token})
+    return Response(body={"user_token": encrypted_token, "team_id": team_id})
 
 
 @app.get("/user")
@@ -255,7 +258,7 @@ async def read_workout(authorization: str = Header(...)):
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
             print(workouts)
-            workouts_processed: List[WorkoutLogSchema] = process_outgoing_workouts(
+            workouts_processed: List[WorkoutLogSchema] = convert_class_instances_to_dicts(
                 workouts
             )
             print(workouts_processed)
@@ -431,7 +434,7 @@ async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Hea
             setattr(user, 'team', team_id)
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update succeessful - team joined"})   
+            return Response(body={"message": "user update succeessful - team joined", "team_id":team_id})   
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=e)
@@ -439,6 +442,13 @@ async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Hea
 
 @app.get('/teamlog')
 async def read_teamlog(authorization: str = Header(...)):
+    """
+    Receives userToken
+    Gets teamID for user
+    Gets teamMembers for team matching teamID
+    Gets all workouts from WorkoutLogTable done by teamMembers that chose to postToTeam
+    Returns team workouts
+    """
     #check authorized request
     auth_uid = validate_user_token(authorization)
     if not auth_uid:
@@ -446,20 +456,22 @@ async def read_teamlog(authorization: str = Header(...)):
     # get user_ids for team members
     try:
         with Session() as session:
-            # pdb.set_trace()
             user_id = get_user_id(auth_uid, session)
             team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
-            team_members = session.query(UserTable.user_id).filter(UserTable.team == team_id).all()
+            team_members = session.query(UserTable).filter(UserTable.team == team_id).all()
             # get workouts for team members where post_to_team == True
             team_workouts = session.query(WorkoutLogTable).filter(
-                WorkoutLogTable.user_id.in_([member[0] for member in team_members]),
+                # WorkoutLogTable.user_id.in_([member[0] for member in team_members]),
+                WorkoutLogTable.user_id.in_([athlete.user_id for athlete in team_members]),
                 WorkoutLogTable.post_to_team == True
             ).all()
-            workouts_processed: List[WorkoutLogSchema] = process_outgoing_workouts(
+            workouts_processed: List[WorkoutLogSchema] = convert_class_instances_to_dicts(
                 team_workouts
             )
-            print(workouts_processed)
-            return Response(body={"team_workouts": workouts_processed})
+            team_members_as_dicts = convert_class_instances_to_dicts(team_members)
+            team_workouts_complete = add_user_info_to_workout(workouts_processed, team_members_as_dicts) 
+            print(team_workouts_complete)
+            return Response(body={"team_workouts": team_workouts_complete})
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=e)
