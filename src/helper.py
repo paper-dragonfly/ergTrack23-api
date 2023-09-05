@@ -139,6 +139,6 @@ def add_user_info_to_workout(workouts:List[dict], members:List[dict]) -> List[di
     for i in range(len(workouts)):
         workouts[i]['user_name'] = members[i]['user_name']
         workouts[i]['sex'] = members[i]['sex']
-        workouts[i]['age'] = members[i]['age']
+        workouts[i]['dob'] = members[i]['dob']
     return workouts 
     

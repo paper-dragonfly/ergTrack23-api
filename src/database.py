@@ -38,13 +38,13 @@ class UserTable(Base):
 
     def __repr__(self):
         return (
-            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', age='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
+            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
             % (
                 self.user_id,
                 self.auth_uid,
                 self.user_name,
                 self.email,
-                self.age,
+                self.dob,
                 self.sex,
                 self.weight_class,
                 self.para_class,
