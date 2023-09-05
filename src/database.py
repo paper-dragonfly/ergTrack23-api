@@ -27,7 +27,7 @@ class UserTable(Base):
     auth_uid = Column(String)  # from firebase
     user_name = Column(String)  # from firebase or edited by user
     email = Column(String)  # from firebase
-    age = Column(Integer)
+    dob = Column(Date)
     sex = Column(String)
     weight_class = Column(String)
     para_class = Column(String)

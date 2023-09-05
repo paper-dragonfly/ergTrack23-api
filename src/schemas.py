@@ -25,7 +25,7 @@ class PutUserSchema(BaseModel):
     email: str
     country: Optional[str] = None
     sex: Optional[str] = None
-    age: Optional[int] = None
+    dob: Optional[str] = None
     weight_class: Optional[str] = None
     para_class: Optional[str] = None
 
@@ -37,7 +37,7 @@ class PatchUserSchema(BaseModel):
     email: Optional[str]
     country: Optional[str] 
     sex: Optional[str] 
-    age: Optional[int] 
+    dob: Optional[str] 
     weight_class: Optional[str] 
     para_class: Optional[str] 
 
