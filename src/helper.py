@@ -90,20 +90,24 @@ def convert_class_instances_to_dicts(workouts: List[WorkoutLogSchema]) -> List[d
 
 
 def duration_to_seconds(duration:str) -> float:
-    time_components = duration.split(':')
-    time_components = [float(item) for item in time_components]
-    seconds = 0
-    
-    seconds = time_components.pop(); 
-    if len(time_components):
-        minutes = time_components.pop()
-        seconds += minutes * 60
-    
-    if len(time_components):
-        hour = time_components.pop()
-        seconds += hour * 3600
-    
-    return seconds
+    try:
+        time_components = duration.split(':')
+        time_components = [float(item) for item in time_components]
+        seconds = 0
+        
+        seconds = time_components.pop(); 
+        if len(time_components):
+            minutes = time_components.pop()
+            seconds += minutes * 60
+        
+        if len(time_components):
+            hour = time_components.pop()
+            seconds += hour * 3600
+        
+        return seconds
+    except Exception:
+        pdb.set_trace()
+        raise Exception('duration_to_seconds failed')
 
 
 def calculate_watts(split: str) -> int:
@@ -136,9 +140,15 @@ def calculate_split_var(workout_metrics):
 
 
 def add_user_info_to_workout(workouts:List[dict], members:List[dict]) -> List[dict]:
+    pdb.set_trace()
+    members_by_id = {}
+    for athlete in members:
+        members_by_id[athlete['user_id']]  = athlete
+        
     for i in range(len(workouts)):
-        workouts[i]['user_name'] = members[i]['user_name']
-        workouts[i]['sex'] = members[i]['sex']
-        workouts[i]['dob'] = members[i]['dob']
+        uid = workouts[i]['user_id']
+        workouts[i]['user_name'] = members_by_id[uid]['user_name']
+        workouts[i]['sex'] = members_by_id[uid]['sex']
+        workouts[i]['dob'] = members_by_id[uid]['dob']
     return workouts 
     
