@@ -37,10 +37,7 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
     return False
 
 
-def get_user_id(auth_uid: str, session):
-    try:
-        user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
-        return user.user_id
-    except Exception as e:
-        print(e)
-        return False
+def get_user_id(auth_uid: str, session)-> int:
+    user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
+    return user.user_id
+    

@@ -9,6 +9,7 @@ from PIL import Image
 from io import BytesIO
 from fastapi import File, UploadFile, Form, Header
 from datetime import datetime
+from src.schemas import OcrDataReturn
 
 
 from src.ocr import hit_textract_api, process_raw_ocr
@@ -16,7 +17,7 @@ from src.ocr import hit_textract_api, process_raw_ocr
 
 def get_processed_ocr_data(
     erg_photo_filename: str, image_bytes: bytes
-) -> Tuple[Dict, str]:
+) -> OcrDataReturn:
     """
     Receives: erg image filename & bytes
     Get raw_ocr (retrieve from library or from AWS Textract) and process
@@ -90,24 +91,22 @@ def convert_class_instances_to_dicts(workouts: List[WorkoutLogSchema]) -> List[d
 
 
 def duration_to_seconds(duration:str) -> float:
-    try:
-        time_components = duration.split(':')
-        time_components = [float(item) for item in time_components]
-        seconds = 0
-        
-        seconds = time_components.pop(); 
-        if len(time_components):
-            minutes = time_components.pop()
-            seconds += minutes * 60
-        
-        if len(time_components):
-            hour = time_components.pop()
-            seconds += hour * 3600
-        
-        return seconds
-    except Exception:
-        pdb.set_trace()
-        raise Exception('duration_to_seconds failed')
+    
+    time_components = duration.split(':')
+    time_components = [float(item) for item in time_components]
+    seconds = 0
+
+    seconds = time_components.pop(); 
+    if len(time_components):
+        minutes = time_components.pop()
+        seconds += minutes * 60
+
+    if len(time_components):
+        hour = time_components.pop()
+        seconds += hour * 3600
+
+    return seconds
+    
 
 
 def calculate_watts(split: str) -> int:
@@ -140,7 +139,6 @@ def calculate_split_var(workout_metrics):
 
 
 def add_user_info_to_workout(workouts:List[dict], members:List[dict]) -> List[dict]:
-    pdb.set_trace()
     members_by_id = {}
     for athlete in members:
         members_by_id[athlete['user_id']]  = athlete

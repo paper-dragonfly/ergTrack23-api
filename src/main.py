@@ -130,7 +130,7 @@ async def read_login(authorization: str = Header(...)):
                 message = "cannot validate user or cannot add user to db"
                 print(message)
                 print(e)
-                return Response(status_code=500, error_message=e)
+                return Response(status_code=500, error_message=str(e))
         encrypted_token = create_encrypted_token(auth_uid)
     except auth.InvalidIdTokenError as err:
         print("Error: ", str(err))
@@ -160,7 +160,7 @@ async def read_user(authorization: str = Header(...)):
             return Response(body=user_info)
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
 
 
 @app.put("/user")
@@ -187,10 +187,10 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
             return Response(body={"message": "user update succeessful"})
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
     
 @app.patch("/user")
-async def update_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
+async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
     """
     Recieves updated user data - specifically team related for now
     Updates database
@@ -216,7 +216,7 @@ async def update_user(new_user_info: PatchUserSchema, authorization: str = Heade
             return Response(body={"message": "user update succeessful"})
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
 
 
 @app.post("/ergImage")
@@ -233,7 +233,7 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
         filename = ergImg.filename
         ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
         t4 = datetime.now()
-        upload_blob("erg_memory_screen_photos", image_bytes, ocr_data["photo_hash"])
+        upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash)
         t5 = datetime.now()
         d3 = t5 - t4
         print("Time to add blob", d3)
@@ -243,7 +243,7 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     except Exception as e:
         print("/ergImage exception", e)
         return Response(status_code=400, error_message=str(e))
-    return Response(body=ocr_data)
+    return Response(body=vars(ocr_data)) 
 
 
 @app.get("/workout")
@@ -258,9 +258,7 @@ async def read_workout(authorization: str = Header(...)):
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
             print(workouts)
-            workouts_processed: List[WorkoutLogSchema] = convert_class_instances_to_dicts(
-                workouts
-            )
+            workouts_processed = convert_class_instances_to_dicts(workouts)
             print(workouts_processed)
             return Response(body={"workouts": workouts_processed})
         except Exception as e:
@@ -283,11 +281,11 @@ async def create_workout(
     if not auth_uid:
         return Response(status_code=401, error_message="Unauthorized Request")
     print(workoutData)
-    split_var = calculate_split_var(workoutData.tableMetrics)
-    watts = calculate_watts(workoutData.tableMetrics[0]["split"])
-    calories = calculate_cals(workoutData.tableMetrics[0]["time"], watts)
     with Session() as session:
         try:
+            split_var = calculate_split_var(workoutData.tableMetrics)
+            watts = calculate_watts(workoutData.tableMetrics[0]["split"])
+            calories = calculate_cals(workoutData.tableMetrics[0]["time"], watts)
             # get user_id
             user_id = get_user_id(auth_uid, session)
             # create data entry (WorkoutLogTable  instance)
@@ -316,7 +314,7 @@ async def create_workout(
             session.commit()
             return Response(body={"message": "workout posted successfully"})
         except Exception as e:
-            return Response(status_code=500, error_message=e)
+            return Response(status_code=500, error_message= str(e))
 
 
 @app.delete("/workout/{workout_id}")
@@ -337,7 +335,7 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
             session.commit()
             return Response(body={"message": "delete successful"})
         except Exception as e:
-            return Response(status_code=500, error_message=e)
+            return Response(status_code=500, error_message=str(e))
 
 
 @app.get("/team")
@@ -364,7 +362,7 @@ async def read_team(authorization: str = Header(...)):
                 return Response(body={'team_member' : False})     
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
     
 
 @app.post("/team")
@@ -405,7 +403,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
             return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
 
 @app.patch('/jointeam')   
 async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
@@ -437,7 +435,7 @@ async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Hea
             return Response(body={"message": "user update succeessful - team joined", "team_id":team_id})   
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
 
 
 @app.get('/teamlog')
@@ -474,7 +472,7 @@ async def read_teamlog(authorization: str = Header(...)):
             return Response(body={"team_workouts": team_workouts_complete})
     except Exception as e:
         print(e)
-        return Response(status_code=500, error_message=e)
+        return Response(status_code=500, error_message=str(e))
     
 
 @app.post("/sandbox")

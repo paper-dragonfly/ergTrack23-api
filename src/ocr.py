@@ -342,8 +342,5 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     print("\nWorkout Data")
     print(workout_df)
 
-    return {
-        "workout_meta": clean_meta,
-        "workout_data": workout_data,
-        "photo_hash": photo_hash,
-    }
+    processed_data = OcrDataReturn(workout_data=clean_meta, workout_data=workout_data, photo_hash=photo_hash)
+    return processed_data
