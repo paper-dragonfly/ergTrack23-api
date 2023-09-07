@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Date,
     Boolean,
+    Float
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import JSON
@@ -26,27 +27,31 @@ class UserTable(Base):
     auth_uid = Column(String)  # from firebase
     user_name = Column(String)  # from firebase or edited by user
     email = Column(String)  # from firebase
-    age = Column(Integer)
+    dob = Column(Date)
     sex = Column(String)
     weight_class = Column(String)
     para_class = Column(String)
     country = Column(String)
     joined = Column(Date, server_default="now()")
+    team = Column(Integer, ForeignKey("team.team_id"))
+    team_admin = Column(Boolean)
 
     def __repr__(self):
         return (
-            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', age='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s')>"
+            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
             % (
                 self.user_id,
                 self.auth_uid,
                 self.user_name,
                 self.email,
-                self.age,
+                self.dob,
                 self.sex,
                 self.weight_class,
                 self.para_class,
                 self.country,
                 self.joined,
+                self.team,
+                self.team_admin
             )
         )
 
@@ -68,11 +73,28 @@ class WorkoutLogTable(Base):
     split = Column(String)
     stroke_rate = Column(Integer)
     heart_rate = Column(Integer)
+    split_variance = Column(Float)
     watts = Column(Integer)
     cal = Column(Integer) 
     image_hash = Column(String)
     subworkouts = Column(JSON)
     comment = Column(String)
+    post_to_team = Column(Boolean)
 
     def __repr__(self):
-        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
+        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, heart_rate={self.heart_rate}, split_variance={self.split_variance}, watts={self.watts}, cal={self.cal}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
+    
+class TeamTable(Base):
+    __tablename__ = 'team'
+
+    team_id = Column(
+        Integer,
+        Sequence("team_team_id_seq"),
+        primary_key=True,
+        server_default="nextval('team_team_id_seq')"
+    )
+    team_name = Column(String)
+    team_code = Column(String)
+
+    def __repr__(self):
+        return f"<TeamTable(team_id={self.team_id}, team_name={self.team_name}, team_code={self.team_code})>"

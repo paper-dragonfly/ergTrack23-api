@@ -25,10 +25,36 @@ class PutUserSchema(BaseModel):
     email: str
     country: Optional[str] = None
     sex: Optional[str] = None
-    age: Optional[int] = None
+    dob: Optional[str] = None
     weight_class: Optional[str] = None
     para_class: Optional[str] = None
 
+
+class PatchUserSchema(BaseModel):
+    team: Optional[int]
+    team_admin: Optional[bool] 
+    user_name: Optional[str]
+    email: Optional[str]
+    country: Optional[str] 
+    sex: Optional[str] 
+    dob: Optional[str] 
+    weight_class: Optional[str] 
+    para_class: Optional[str] 
+
+    def todict(self) -> dict:
+        filtered_new_user_info = {key: value for key, value in vars(self).items() if value is not None}
+        if "team" not in filtered_new_user_info:
+            filtered_new_user_info['team'] = None 
+        return filtered_new_user_info
+
+
+
+
+
+
+class PostTeamDataSchema(BaseModel):
+    teamName: str
+    teamCode: str
 
 ## function return schemas
 class CleanMetaReturn(BaseModel):
@@ -70,9 +96,13 @@ class WorkoutLogSchema(BaseModel):
     split: str
     stroke_rate: int
     heart_rate: int
+    split_variance: float
+    watts: int
+    cal: int
     image_hash: Optional[str] = None
     subworkouts: List[dict]
     comment: str
+    post_to_team: Optional[bool]  
 
 
 class CustomError(Exception):
