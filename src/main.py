@@ -29,6 +29,7 @@ from src.utils import (
     create_encrypted_token,
     validate_user_token,
     get_user_id,
+    InvalidTokenError
 )
 from src.database import UserTable, WorkoutLogTable, TeamTable
 from src.helper import (
@@ -135,7 +136,7 @@ async def read_login(authorization: str = Header(...)):
     except auth.InvalidIdTokenError as err:
         print("Error: ", str(err))
         # Token invalid
-        return Response(status_code=400, error_message=f"Token invalin: {err}")
+        return Response(status_code=400, error_message=f"Token invalin: {str(err)}")
     except:
         return Response(
             status_code=400, error_message="no token recieved or other issue"
@@ -149,15 +150,16 @@ async def read_user(authorization: str = Header(...)):
     Recieves user_id
     Returns all data from UserTable for that user
     """
-    # confirm data coming from valid user
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+    # confirm data coming from valid user
+        auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user_info = session.query(UserTable).get(user_id).__dict__
             return Response(body=user_info)
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -172,10 +174,8 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
     """
     # confirm data coming from valid user
     print(new_user_info)
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+        auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
@@ -185,6 +185,9 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
             # UserTable[user] = new_user_info.dict()
             session.commit()
             return Response(body={"message": "user update succeessful"})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -197,10 +200,8 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
     Returns success message
     """
     # confirm data coming from valid user
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+        auth_uid = validate_user_token(authorization)
         print(new_user_info)
         filtered_new_user_info = new_user_info.todict()
         print(filtered_new_user_info)
@@ -214,6 +215,9 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
             # UserTable[user] = new_user_info.dict()
             session.commit()
             return Response(body={"message": "user update succeessful"})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -249,11 +253,9 @@ async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
 @app.get("/workout")
 async def read_workout(authorization: str = Header(...)):
     """Get all workout data for user"""
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
-    with Session() as session:
-        try:
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             print("workouts retreived")
@@ -261,9 +263,12 @@ async def read_workout(authorization: str = Header(...)):
             workouts_processed = convert_class_instances_to_dicts(workouts)
             print(workouts_processed)
             return Response(body={"workouts": workouts_processed})
-        except Exception as e:
-            print(e)
-            return Response(status_code=500, error_message=str(e))
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
 
 
 @app.post("/workout")
@@ -277,12 +282,10 @@ async def create_workout(
     """
     # pdb.set_trace()
     # confirm data coming from valid user
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     print(workoutData)
     with Session() as session:
         try:
+            auth_uid = validate_user_token(authorization)
             split_var = calculate_split_var(workoutData.tableMetrics)
             watts = calculate_watts(workoutData.tableMetrics[0]["split"])
             calories = calculate_cals(workoutData.tableMetrics[0]["time"], watts)
@@ -313,6 +316,9 @@ async def create_workout(
             session.add(workout_entry)
             session.commit()
             return Response(body={"message": "workout posted successfully"})
+        except InvalidTokenError as e:
+            print(e)
+            return Response(status_code=404, error_message=str(e))
         except Exception as e:
             return Response(status_code=500, error_message= str(e))
 
@@ -325,17 +331,18 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
     Returns success message
     """
     # confirm data coming from valid user
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
-    with Session() as session:
-        try:
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
             entry = session.query(WorkoutLogTable).get(workout_id)
             session.delete(entry)
             session.commit()
             return Response(body={"message": "delete successful"})
-        except Exception as e:
-            return Response(status_code=500, error_message=str(e))
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        return Response(status_code=500, error_message=str(e))
 
 
 @app.get("/team")
@@ -346,10 +353,8 @@ async def read_team(authorization: str = Header(...)):
     returns: if user is on team - info for team matching team_id + if admin 
     """
     # pdb.set_trace()
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+        auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user_info = session.query(UserTable).get(user_id).__dict__
@@ -360,6 +365,9 @@ async def read_team(authorization: str = Header(...)):
                 return Response(body={'team_member': True, 'team_info': team_info, 'team_admin': admin})
             else:
                 return Response(body={'team_member' : False})     
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -373,10 +381,8 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
     Adds teamID to team_id col for user  associated with userToken AND changes team_admin val to True
     Returns team name, [V2 - all workouts for team] 
     """
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+        auth_uid = validate_user_token(authorization)
         with Session() as session:
             # Query to check if a team already exists - only needed in dev
             new_team_id = session.query(TeamTable.team_id).filter(
@@ -401,6 +407,9 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 setattr(user, key, user_patch[key])
             session.commit()
             return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -413,10 +422,8 @@ async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Hea
     Posts id into team col of user 
     Returns confirmation
     '''
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
     try:
+        auth_uid = validate_user_token(authorization)
         with Session() as session:
             # Query to check if a team already exists - only needed in dev
             team_id_result = session.query(TeamTable.team_id).filter(
@@ -433,6 +440,9 @@ async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Hea
             # UserTable[user] = new_user_info.dict()
             session.commit()
             return Response(body={"message": "user update succeessful - team joined", "team_id":team_id})   
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
@@ -447,12 +457,10 @@ async def read_teamlog(authorization: str = Header(...)):
     Gets all workouts from WorkoutLogTable done by teamMembers that chose to postToTeam
     Returns team workouts
     """
-    #check authorized request
-    auth_uid = validate_user_token(authorization)
-    if not auth_uid:
-        return Response(status_code=401, error_message="Unauthorized Request")
-    # get user_ids for team members
     try:
+        #check authorized request
+        auth_uid = validate_user_token(authorization)
+        # get user_ids for team members
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
@@ -470,6 +478,9 @@ async def read_teamlog(authorization: str = Header(...)):
             team_workouts_complete = add_user_info_to_workout(workouts_processed, team_members_as_dicts) 
             print(team_workouts_complete)
             return Response(body={"team_workouts": team_workouts_complete})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
