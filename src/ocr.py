@@ -192,7 +192,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                         )
                     #FIX HR gets lumped in with SR in col4 either as two words or as one 
                     if block["ColumnIndex"] == 4 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
-                        #delete most recent cell entry - it contains the merged data
+                        #delete most recent cell entry in table_data - it contains the merged SR/HR data
                         del table_data[-1] 
                         # isolate SR and HR data 
                         if len(cell_data["text_ids"]) > 1:
@@ -257,7 +257,6 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                         "text": [""],
                     }
                     table_data.insert(hr_index, cell_data)
-        pdb.set_trace()
         return table_data
     except Exception as e:
         raise CustomError(f"extract_table_data failed, {e}")
@@ -335,8 +334,8 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
     meta = raw_meta
     try:
         view_detail_idx = [
-            i for i, item in enumerate(raw_meta) if "View" in item or "Detail" in item
-        ][0]
+            i for i, item in enumerate(raw_meta) if "View" in item or "Detail" in item or "Verification:" in item
+        ][-1]
         meta = raw_meta[view_detail_idx + 1 :]
     except:
         pass
@@ -346,7 +345,7 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
         except:
             pass
     # pdb.set_trace()
-    if len(meta) == 2:
+    if 2<= len(meta) <= 3:
         meta_dict = {"wo_name": meta[0], "wo_date": meta[1]}
     elif len(meta) >= 4:
         meta_dict = {
