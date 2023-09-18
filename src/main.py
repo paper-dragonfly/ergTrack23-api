@@ -227,7 +227,7 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     """
     Receives UploadFile containing photo of erg screen,
-    sends image to Textract for OCR, processes raw result
+    sends image to Textract for OCR, processes raw result, save img gcs bucket
     Returns processed data
     """
     try:

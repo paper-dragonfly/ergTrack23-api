@@ -260,6 +260,9 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                     wo_dict["sr"].append(cell["text"][0])
                 elif cell["col"] == 5:
                     wo_dict["hr"].append(cell["text"][0])
+        if wo_dict['meter'][-1] and not wo_dict['time'][-1]:
+            for lst in  wo_dict.values():
+                del lst[-1]          
         return wo_dict
     except Exception as e:
         raise CustomError("compile_workout_data failed, invalid column count")
