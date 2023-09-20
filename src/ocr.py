@@ -156,8 +156,21 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         num_cols = cell_blocks[-1]["ColumnIndex"]
         print(f"num cols: {num_cols}")
 
-        if not 1 < num_cols < 6:
+        if not 1 < num_cols < 7:
             raise CustomError("extract_table_data failed, invalid column count")
+        #if num cols is 6 check if last two cols are empty and delete them if they are
+        if num_cols == 6:
+            #create list of all col 5 and 6 cells
+            col56 = [block for block in cell_blocks if block['ColumnIndex'] in [5,6]]
+            content = False
+            # check if empty
+            for block in col56:
+                if "Relationships" in block.keys():
+                    content = True 
+            if not content:
+                cell_blocks  = [block for block in cell_blocks if block['ColumnIndex'] not in [5,6]] 
+                num_cols = 4              
+            
         # if num cols is 2 or three seperate merged cols:
         if num_cols < 4:
             print("Merged cols detected")
