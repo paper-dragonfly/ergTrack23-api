@@ -117,7 +117,8 @@ def calculate_watts(split: str) -> int:
 
 def calculate_cals(time: str, watts: float) -> int:
     time_hour = duration_to_seconds(time)/3600
-    cal = math.ceil(watts/1000 * time_hour * 860 * 4 + 300)
+    #W -> kW 1 | kWh = 860 kCal | efficiency 25% | just living 300kCal/h
+    cal = math.ceil(watts/1000 * time_hour * 860 * 4 + 300*time_hour)
     return cal
 
 def insert_every_n_indices(lst, item, n):

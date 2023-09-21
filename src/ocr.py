@@ -126,7 +126,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
 
 def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
     # if previous block didn't correct empty cell, add empty entry - see FIX  below
-    # fix (i.e. not needed) would apply if SR had been lumped in with split
+    # fix (i.e. not needed) would apply if SR had been lumped in with split or HR lumped in with SR
     if not (
         table_data[-1]["row"] == block["RowIndex"]
         and table_data[-1]["col"] == block["ColumnIndex"]
@@ -156,8 +156,21 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         num_cols = cell_blocks[-1]["ColumnIndex"]
         print(f"num cols: {num_cols}")
 
-        if not 1 < num_cols < 6:
+        if not 1 < num_cols < 7:
             raise CustomError("extract_table_data failed, invalid column count")
+        #if num cols is 6 check if last two cols are empty and delete them if they are
+        if num_cols == 6:
+            #create list of all col 5 and 6 cells
+            col56 = [block for block in cell_blocks if block['ColumnIndex'] in [5,6]]
+            content = False
+            # check if empty
+            for block in col56:
+                if "Relationships" in block.keys():
+                    content = True 
+            if not content:
+                cell_blocks  = [block for block in cell_blocks if block['ColumnIndex'] not in [5,6]] 
+                num_cols = 4              
+            
         # if num cols is 2 or three seperate merged cols:
         if num_cols < 4:
             print("Merged cols detected")
@@ -190,7 +203,48 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "text_id": [cell_data["text_ids"][-1]],
                             }
                         )
-                    # FIX SR gets lumped in with HR either as two words or as one (* assumes len(sr)==2, len(hr)==3)
+                    #FIX HR gets lumped in with SR in col4 either as two words or as one 
+                    if block["ColumnIndex"] == 4 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
+                        #delete most recent cell entry in table_data - it contains the merged SR/HR data
+                        del table_data[-1] 
+                        # isolate SR and HR data 
+                        if len(cell_data["text_ids"]) > 1:
+                            sr = cell_data['text'][0]
+                            hr = cell_data['text'][1] 
+                            sr_text_id = cell_data['text_ids'][0]
+                            hr_text_id = ['from SR'] #for debugging
+                        else: 
+                            sr = cell_data['text'][0][:2]
+                            hr = cell_data["text"][0][2:].strip()
+                            sr_text_id = ['altered - SRHR split'] #for debugging
+                            hr_text_id = ['from SR'] #for debugging
+                        table_data.append(
+                            {
+                                "row": block["RowIndex"],
+                                "col": 4,
+                                "text": [sr],
+                                "text_id": sr_text_id,
+                            }
+                        )   
+                        table_data.append(
+                            {
+                                "row": block["RowIndex"],
+                                "col": 5,
+                                "text": [hr],
+                                "text_id": hr_text_id,
+                            }
+                        ) 
+                        # add HR column heading if missing
+                        if table_data[4]['row'] == 2:
+                            hr_head = {
+                                "row": table_data[0]['row'],
+                                "col": 5,
+                                "text": ['hr'],
+                                "text_id": ['fm manual']
+                            }
+                        
+                            table_data.insert(4,hr_head)                        
+                    # FIX SR gets lumped in with HR in col5 either as two words or as one (* assumes len(sr)==2, len(hr)==3)
                     if block["ColumnIndex"] == 5 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
                         # cell most recently added to table_data will be missing text - populate it from this HR cell
                         if len(cell_data["text_ids"]) > 1:
@@ -206,7 +260,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                             table_data[-1]["text"][0] = hr
                             table_data[-1]["text_ids"] = ['altered - SRHR split'] #not neccessary - helpful for debugging
             # Add HR col - all empty
-            if num_cols == 4:
+            if num_cols == 4 and table_data[-1]['col'] == 4:
                 for i in range(len(table_data) // 4):
                     hr_index = (i + 1) * 5 -1
                     first_data_row = table_data[0]['row']
@@ -215,7 +269,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                         "col": 5,
                         "text": [""],
                     }
-                    table_data.insert(hr_index, cell_data)  
+                    table_data.insert(hr_index, cell_data)
         return table_data
     except Exception as e:
         raise CustomError(f"extract_table_data failed, {e}")
@@ -260,6 +314,9 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                     wo_dict["sr"].append(cell["text"][0])
                 elif cell["col"] == 5:
                     wo_dict["hr"].append(cell["text"][0])
+        if wo_dict['meter'][-1] and not wo_dict['time'][-1]:
+            for lst in  wo_dict.values():
+                del lst[-1]          
         return wo_dict
     except Exception as e:
         raise CustomError("compile_workout_data failed, invalid column count")
@@ -290,8 +347,8 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
     meta = raw_meta
     try:
         view_detail_idx = [
-            i for i, item in enumerate(raw_meta) if "View" in item or "Detail" in item
-        ][0]
+            i for i, item in enumerate(raw_meta) if "View" in item or "Detail" in item or "Verification:" in item
+        ][-1]
         meta = raw_meta[view_detail_idx + 1 :]
     except:
         pass
@@ -301,7 +358,7 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
         except:
             pass
     # pdb.set_trace()
-    if len(meta) == 2:
+    if 2<= len(meta) <= 3:
         meta_dict = {"wo_name": meta[0], "wo_date": meta[1]}
     elif len(meta) >= 4:
         meta_dict = {

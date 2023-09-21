@@ -227,7 +227,7 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
 async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
     """
     Receives UploadFile containing photo of erg screen,
-    sends image to Textract for OCR, processes raw result
+    sends image to Textract for OCR, processes raw result, save img gcs bucket
     Returns processed data
     """
     try:
@@ -384,12 +384,14 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
-            # Query to check if a team already exists - only needed in dev
-            new_team_id = session.query(TeamTable.team_id).filter(
-                TeamTable.team_name == teamData.teamName,
-                TeamTable.team_code == teamData.teamCode
-                ).first()[0]
-            if not new_team_id: 
+            try:
+                # Query to check if a "new" team already exists - only needed in dev, assume in prod no one would create identical teams
+                # TODO: does this leave us with the potential for dual admins? ... I think so... does it matter? 
+                new_team_id = session.query(TeamTable.team_id).filter(
+                    TeamTable.team_name == teamData.teamName,
+                    TeamTable.team_code == teamData.teamCode
+                    ).first()[0]
+            except TypeError: 
                 #add new team to team table
                 team_entry = TeamTable(
                     team_name = teamData.teamName,
