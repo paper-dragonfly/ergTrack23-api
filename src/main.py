@@ -352,7 +352,6 @@ async def read_team(authorization: str = Header(...)):
     Uses token to get user_id, queries user table for team_id
     returns: if user is on team - info for team matching team_id + if admin 
     """
-    # pdb.set_trace()
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -500,13 +499,14 @@ async def read_team_info(authorization: str = Header(...)):
         #check authorized request
         auth_uid = validate_user_token(authorization)
         with Session() as session:
-            pdb.set_trace
+            pdb.set_trace()
             user_id = get_user_id(auth_uid, session) 
             team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
-            team_info = session.query(TeamTable).filter_by(team_id=team_id).first()
+            team_info_inst = session.query(TeamTable).filter_by(team_id=team_id).first()
+            team_info_dict = {k: v for k, v in team_info_inst.__dict__.items() if not k.startswith("_")}
             team_members_inst = session.query(UserTable).filter(UserTable.team == team_id).all()
             team_members = convert_class_instances_to_dicts(team_members_inst)
-            return Response(body={team_info:team_info, team_members:team_members})
+            return Response(body={"team_info":team_info_dict, "team_members":team_members})
     except InvalidTokenError as e:
         print(e)
         return Response(status_code=404, error_message=str(e))
