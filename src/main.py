@@ -109,7 +109,7 @@ async def read_login(authorization: str = Header(...)):
         print("decoded token ", decoded_token)
         # token is valid
         auth_uid = decoded_token["uid"]
-        # check if user in db, if not add user
+        # check if user in ergtrack db, if not add user
         with Session() as session:
             try:
                 existing_user = (
@@ -117,11 +117,11 @@ async def read_login(authorization: str = Header(...)):
                     .filter_by(auth_uid=auth_uid)
                     .one_or_none()
                 )
-                team_id = existing_user.team
+                team_id = existing_user.team if existing_user else None
                 if not existing_user:
                     new_user = UserTable(
                         auth_uid=auth_uid,
-                        user_name=decoded_token["name"],
+                        user_name=decoded_token["name"] if 'name' in  decoded_token.keys() else None,
                         email=decoded_token["email"],
                     )
                     session.add(new_user)
@@ -385,14 +385,16 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             try:
-                # Query to check if a "new" team already exists - only needed in dev, assume in prod no one would create identical teams
+                # Query to check if the "new" team already exists - only needed in dev, assume in prod no one would create identical teams
                 # TODO: does this leave us with the potential for dual admins? ... I think so... does it matter? 
                 new_team_id = session.query(TeamTable.team_id).filter(
                     TeamTable.team_name == teamData.teamName,
                     TeamTable.team_code == teamData.teamCode
                     ).first()[0]
+                if new_team_id:
+                    return Response(status_code=403, error_message='Team already exists')
             except TypeError: 
-                #add new team to team table
+                #team not in db - add new team to team table
                 team_entry = TeamTable(
                     team_name = teamData.teamName,
                     team_code = teamData.teamCode
@@ -487,6 +489,31 @@ async def read_teamlog(authorization: str = Header(...)):
         print(e)
         return Response(status_code=500, error_message=str(e))
     
+@app.get("/teamadmin")
+async def read_team_info(authorization: str = Header(...)):
+    """
+    Receives userToken
+    Get user from  userToken, get user team, get team info, get member info
+    Returns team info and team members' info
+    """
+    try: 
+        #check authorized request
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            pdb.set_trace
+            user_id = get_user_id(auth_uid, session) 
+            team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+            team_info = session.query(TeamTable).filter_by(team_id=team_id).first()
+            team_members_inst = session.query(UserTable).filter(UserTable.team == team_id).all()
+            team_members = convert_class_instances_to_dicts(team_members_inst)
+            return Response(body={team_info:team_info, team_members:team_members})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+
 
 @app.post("/sandbox")
 async def create_sandbox(
