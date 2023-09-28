@@ -206,6 +206,7 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
         filtered_new_user_info = new_user_info.todict()
         print(filtered_new_user_info)
         with Session() as session:
+            #should I add security layere that confirms  auth_uid matches admin if trying to edit another users info? 
             user_id = userId if userId else get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
             # pdb.set_trace()
@@ -545,7 +546,40 @@ async def read_team_info(authorization: str = Header(...)):
         print(e)
         return Response(status_code=500, error_message=str(e))
 
+@app.patch('/transferadmin/{new_admin_id}')
+async def update_admin(new_admin_id: int, authorization: str=Header(...)):
+    """_summary_
 
+    Args:
+        new_admin_id (int): user_id for athlete
+        authorization (str, optional): _description_. Defaults to Header(...).
+
+    Action:
+        switches value of admin for new_admin to true and old admin to falsee
+    Returns:
+        Response : success message
+    """
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            #should I add security layere that confirms  auth_uid matches admin if trying to edit another users info? 
+            pdb.set_trace()
+            user_id = get_user_id(auth_uid, session)
+            old_admin = session.query(UserTable).get(user_id)
+            new_admin = session.query(UserTable).get(new_admin_id)
+            setattr(old_admin, "team_admin", False )
+            setattr(new_admin, "team_admin", True )
+            session.commit()
+            return Response(body={"message": "Update successful"})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+
+    
+    
 @app.post("/sandbox")
 async def create_sandbox(
     name: str = Form(...), age: str = Form(...), image: UploadFile = File(...)
