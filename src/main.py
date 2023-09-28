@@ -563,7 +563,6 @@ async def update_admin(new_admin_id: int, authorization: str=Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             #should I add security layere that confirms  auth_uid matches admin if trying to edit another users info? 
-            pdb.set_trace()
             user_id = get_user_id(auth_uid, session)
             old_admin = session.query(UserTable).get(user_id)
             new_admin = session.query(UserTable).get(new_admin_id)
