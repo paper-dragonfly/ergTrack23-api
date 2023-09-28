@@ -172,9 +172,9 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
     Updates database
     Returns success message
     """
-    # confirm data coming from valid user
     print(new_user_info)
     try:
+        # confirm data coming from valid user
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
@@ -193,7 +193,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
         return Response(status_code=500, error_message=str(e))
     
 @app.patch("/user")
-async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
+async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header(...), userId: Union[int, None] = None):
     """
     Recieves updated user data - specifically team related for now
     Updates database
@@ -206,7 +206,7 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
         filtered_new_user_info = new_user_info.todict()
         print(filtered_new_user_info)
         with Session() as session:
-            user_id = get_user_id(auth_uid, session)
+            user_id = userId if userId else get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
             # pdb.set_trace()
             # update user with new info
@@ -416,6 +416,38 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
     except Exception as e:
         print(e)
         return Response(status_code=500, error_message=str(e))
+    
+@app.put('/team/{team_id}')
+async def update_team(team_id:int, teamData:PostTeamDataSchema, authorization: str= Header(...) ):
+    """_summary_
+
+    Args:
+        team_id (int): 
+        teamData (PostTeamDataSchema): team name and team code
+        authorization (str, optional): contains userToken -> auth_uid
+
+    Returns:
+        Confirmation (Response): 
+    """
+    try:
+        auth_uid=validate_user_token(authorization)
+        with Session() as session:
+            team = session.query(TeamTable).get(team_id)
+            print('TEAM', team)
+            pdb.set_trace()
+            # update user with new info
+            team.team_name = teamData.teamName
+            team.team_code = teamData.teamCode
+            # for key, value in vars(teamData).items():
+            #     setattr(team, key, value)
+            session.commit()
+            return Response(body={"message": "team update succeessful"})           
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
 
 @app.patch('/jointeam')   
 async def write_join_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
@@ -499,14 +531,13 @@ async def read_team_info(authorization: str = Header(...)):
         #check authorized request
         auth_uid = validate_user_token(authorization)
         with Session() as session:
-            pdb.set_trace()
             user_id = get_user_id(auth_uid, session) 
             team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
             team_info_inst = session.query(TeamTable).filter_by(team_id=team_id).first()
             team_info_dict = {k: v for k, v in team_info_inst.__dict__.items() if not k.startswith("_")}
             team_members_inst = session.query(UserTable).filter(UserTable.team == team_id).all()
             team_members = convert_class_instances_to_dicts(team_members_inst)
-            return Response(body={"team_info":team_info_dict, "team_members":team_members})
+            return Response(body={"team_info":team_info_dict, "team_members":team_members, "admin_uid":user_id})
     except InvalidTokenError as e:
         print(e)
         return Response(status_code=404, error_message=str(e))
