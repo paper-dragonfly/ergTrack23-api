@@ -23,7 +23,8 @@ from src.schemas import (
     Response,
     PutUserSchema,
     PatchUserSchema,
-    PostTeamDataSchema
+    PostTeamDataSchema,
+    PostFeedbackSchema
 )
 from src.utils import (
     create_encrypted_token,
@@ -31,7 +32,7 @@ from src.utils import (
     get_user_id,
     InvalidTokenError
 )
-from src.database import UserTable, WorkoutLogTable, TeamTable
+from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts, 
     upload_blob, 
@@ -562,7 +563,7 @@ async def update_admin(new_admin_id: int, authorization: str=Header(...)):
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
-            #should I add security layere that confirms  auth_uid matches admin if trying to edit another users info? 
+            #should I add security layer that confirms  auth_uid matches admin if trying to edit another users info? 
             user_id = get_user_id(auth_uid, session)
             old_admin = session.query(UserTable).get(user_id)
             new_admin = session.query(UserTable).get(new_admin_id)
@@ -578,6 +579,35 @@ async def update_admin(new_admin_id: int, authorization: str=Header(...)):
         return Response(status_code=500, error_message=str(e))
 
     
+# OTHER 
+
+@app.post("/feedback")
+async def create_feedback(
+    feedbackInfo: PostFeedbackSchema, authorization: str=Header(...)
+):
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            user_id = get_user_id(auth_uid)
+            entry = FeedbackTable(
+                date = datetime.date.today(),  
+                user_id = user_id,
+                feedback_type = feedbackInfo.feedbackType,
+                comment = feedbackInfo.comment
+            )
+            session.add(entry)
+            session.commit()
+            print('feedback added')
+            new_feedback_id = entry.feedback_id
+            return Response(body={new_feedback_id: new_feedback_id})         
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+        
+
     
 @app.post("/sandbox")
 async def create_sandbox(

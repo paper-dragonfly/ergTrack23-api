@@ -47,10 +47,9 @@ class PatchUserSchema(BaseModel):
             filtered_new_user_info['team'] = None 
         return filtered_new_user_info
 
-
-
-
-
+class PostFeedbackSchema(BaseModel):
+    feedbackType: str
+    comment: str
 
 class PostTeamDataSchema(BaseModel):
     teamName: str
