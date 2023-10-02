@@ -151,7 +151,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
         print('blocks before time removed')
         print('cell blocks len', len(cell_blocks))
-
+        
         # CHECK number of columns
         num_cols = cell_blocks[-1]["ColumnIndex"]
         print(f"num cols: {num_cols}")

@@ -98,3 +98,19 @@ class TeamTable(Base):
 
     def __repr__(self):
         return f"<TeamTable(team_id={self.team_id}, team_name={self.team_name}, team_code={self.team_code})>"
+
+class FeedbackTable(Base):
+    __tablename__ = 'feedback'
+    
+    feedback_id = Column(
+        Integer,
+        Sequence("feedback_feedback_id_seq"),
+        primary_key=True,
+    )
+    date = Column(Date)
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+    feedback_type = Column(String) 
+    comment = Column(String)
+    
+    def __repr__(self):
+        return f"<FeedbackTable(feedback_id={self.feedback_id}, date={self.date}, user_id={self.user_id}, feedback_type='{self.feedback_type}', comment='{self.comment}')>"

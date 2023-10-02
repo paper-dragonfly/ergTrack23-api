@@ -80,13 +80,13 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
         print(f"{image_hash} uploaded to {bucket_name}.")
 
 
-def convert_class_instances_to_dicts(workouts: List[WorkoutLogSchema]) -> List[dict]:
-    """Reformat workouts retrieved by sqlAlchemy query from list of class instances to list of dicts"""
-    # converts list of class instances into list of dictionaries
+def convert_class_instances_to_dicts(sqlAlchemy_insts: list) -> List[dict]:
+    """Reformat response retrieved by sqlAlchemy query from list of class instances to list of dicts"""
+    # converts list of class instances -> list of dictionaries
     converted_list = []
-    for wo in workouts:
-        wo_dict = {k: v for k, v in wo.__dict__.items() if not k.startswith("_")}
-        converted_list.append(wo_dict)
+    for inst in sqlAlchemy_insts:
+        inst_as_dict = {k: v for k, v in inst.__dict__.items() if not k.startswith("_")}
+        converted_list.append(inst_as_dict)
     return converted_list
 
 

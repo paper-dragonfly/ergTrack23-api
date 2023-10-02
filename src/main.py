@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Optional, List, Union
 import time
 import yaml
-from datetime import datetime
+from datetime import datetime, date 
 import os
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
@@ -23,7 +23,8 @@ from src.schemas import (
     Response,
     PutUserSchema,
     PatchUserSchema,
-    PostTeamDataSchema
+    PostTeamDataSchema,
+    PostFeedbackSchema
 )
 from src.utils import (
     create_encrypted_token,
@@ -31,7 +32,7 @@ from src.utils import (
     get_user_id,
     InvalidTokenError
 )
-from src.database import UserTable, WorkoutLogTable, TeamTable
+from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts, 
     upload_blob, 
@@ -109,7 +110,7 @@ async def read_login(authorization: str = Header(...)):
         print("decoded token ", decoded_token)
         # token is valid
         auth_uid = decoded_token["uid"]
-        # check if user in db, if not add user
+        # check if user in ergtrack db, if not add user
         with Session() as session:
             try:
                 existing_user = (
@@ -117,11 +118,11 @@ async def read_login(authorization: str = Header(...)):
                     .filter_by(auth_uid=auth_uid)
                     .one_or_none()
                 )
-                team_id = existing_user.team
+                team_id = existing_user.team if existing_user else None
                 if not existing_user:
                     new_user = UserTable(
                         auth_uid=auth_uid,
-                        user_name=decoded_token["name"],
+                        user_name=decoded_token["name"] if 'name' in  decoded_token.keys() else None,
                         email=decoded_token["email"],
                     )
                     session.add(new_user)
@@ -172,9 +173,9 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
     Updates database
     Returns success message
     """
-    # confirm data coming from valid user
     print(new_user_info)
     try:
+        # confirm data coming from valid user
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
@@ -193,7 +194,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
         return Response(status_code=500, error_message=str(e))
     
 @app.patch("/user")
-async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header(...)):
+async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header(...), userId: Union[int, None] = None):
     """
     Recieves updated user data - specifically team related for now
     Updates database
@@ -206,7 +207,8 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
         filtered_new_user_info = new_user_info.todict()
         print(filtered_new_user_info)
         with Session() as session:
-            user_id = get_user_id(auth_uid, session)
+            #should I add security layere that confirms  auth_uid matches admin if trying to edit another users info? 
+            user_id = userId if userId else get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
             # pdb.set_trace()
             # update user with new info
@@ -352,7 +354,6 @@ async def read_team(authorization: str = Header(...)):
     Uses token to get user_id, queries user table for team_id
     returns: if user is on team - info for team matching team_id + if admin 
     """
-    # pdb.set_trace()
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -385,14 +386,16 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             try:
-                # Query to check if a "new" team already exists - only needed in dev, assume in prod no one would create identical teams
+                # Query to check if the "new" team already exists - only needed in dev, assume in prod no one would create identical teams
                 # TODO: does this leave us with the potential for dual admins? ... I think so... does it matter? 
                 new_team_id = session.query(TeamTable.team_id).filter(
                     TeamTable.team_name == teamData.teamName,
                     TeamTable.team_code == teamData.teamCode
                     ).first()[0]
+                if new_team_id:
+                    return Response(status_code=403, error_message='Team already exists')
             except TypeError: 
-                #add new team to team table
+                #team not in db - add new team to team table
                 team_entry = TeamTable(
                     team_name = teamData.teamName,
                     team_code = teamData.teamCode
@@ -409,6 +412,38 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 setattr(user, key, user_patch[key])
             session.commit()
             return Response(body={'team_id':new_team_id, 'team_name':teamData.teamName})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+    
+@app.put('/team/{team_id}')
+async def update_team(team_id:int, teamData:PostTeamDataSchema, authorization: str= Header(...) ):
+    """_summary_
+
+    Args:
+        team_id (int): 
+        teamData (PostTeamDataSchema): team name and team code
+        authorization (str, optional): contains userToken -> auth_uid
+
+    Returns:
+        Confirmation (Response): 
+    """
+    try:
+        auth_uid=validate_user_token(authorization)
+        with Session() as session:
+            team = session.query(TeamTable).get(team_id)
+            print('TEAM', team)
+            pdb.set_trace()
+            # update user with new info
+            team.team_name = teamData.teamName
+            team.team_code = teamData.teamCode
+            # for key, value in vars(teamData).items():
+            #     setattr(team, key, value)
+            session.commit()
+            return Response(body={"message": "team update succeessful"})           
     except InvalidTokenError as e:
         print(e)
         return Response(status_code=404, error_message=str(e))
@@ -487,7 +522,93 @@ async def read_teamlog(authorization: str = Header(...)):
         print(e)
         return Response(status_code=500, error_message=str(e))
     
+@app.get("/teamadmin")
+async def read_team_info(authorization: str = Header(...)):
+    """
+    Receives userToken
+    Get user from  userToken, get user team, get team info, get member info
+    Returns team info and team members' info
+    """
+    try: 
+        #check authorized request
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session) 
+            team_id = session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+            team_info_inst = session.query(TeamTable).filter_by(team_id=team_id).first()
+            team_info_dict = {k: v for k, v in team_info_inst.__dict__.items() if not k.startswith("_")}
+            team_members_inst = session.query(UserTable).filter(UserTable.team == team_id).all()
+            team_members = convert_class_instances_to_dicts(team_members_inst)
+            return Response(body={"team_info":team_info_dict, "team_members":team_members, "admin_uid":user_id})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
 
+@app.patch('/transferadmin/{new_admin_id}')
+async def update_admin(new_admin_id: int, authorization: str=Header(...)):
+    """_summary_
+
+    Args:
+        new_admin_id (int): user_id for athlete
+        authorization (str, optional): _description_. Defaults to Header(...).
+
+    Action:
+        switches value of admin for new_admin to true and old admin to falsee
+    Returns:
+        Response : success message
+    """
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            #should I add security layer that confirms  auth_uid matches admin if trying to edit another users info? 
+            user_id = get_user_id(auth_uid, session)
+            old_admin = session.query(UserTable).get(user_id)
+            new_admin = session.query(UserTable).get(new_admin_id)
+            setattr(old_admin, "team_admin", False )
+            setattr(new_admin, "team_admin", True )
+            session.commit()
+            return Response(body={"message": "Update successful"})
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+
+    
+# OTHER 
+
+@app.post("/feedback")
+async def create_feedback(
+    feedbackInfo: PostFeedbackSchema, authorization: str=Header(...)
+):
+    try:
+        auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            user_id = get_user_id(auth_uid, session)
+            entry = FeedbackTable(
+                date = date.today(),  
+                user_id = user_id,
+                feedback_type = feedbackInfo.feedbackCategory,
+                comment = feedbackInfo.comment
+            )
+            session.add(entry)
+            session.commit()
+            print('feedback added')
+            new_feedback_id = entry.feedback_id
+            return Response(body={new_feedback_id: new_feedback_id})         
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
+    except Exception as e:
+        print(e)
+        return Response(status_code=500, error_message=str(e))
+        
+
+    
 @app.post("/sandbox")
 async def create_sandbox(
     name: str = Form(...), age: str = Form(...), image: UploadFile = File(...)
