@@ -48,7 +48,7 @@ class PatchUserSchema(BaseModel):
         return filtered_new_user_info
 
 class PostFeedbackSchema(BaseModel):
-    feedbackType: str
+    feedbackCategory: str
     comment: str
 
 class PostTeamDataSchema(BaseModel):

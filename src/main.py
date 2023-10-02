@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Optional, List, Union
 import time
 import yaml
-from datetime import datetime
+from datetime import datetime, date 
 import os
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
@@ -588,11 +588,11 @@ async def create_feedback(
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
-            user_id = get_user_id(auth_uid)
+            user_id = get_user_id(auth_uid, session)
             entry = FeedbackTable(
-                date = datetime.date.today(),  
+                date = date.today(),  
                 user_id = user_id,
-                feedback_type = feedbackInfo.feedbackType,
+                feedback_type = feedbackInfo.feedbackCategory,
                 comment = feedbackInfo.comment
             )
             session.add(entry)
