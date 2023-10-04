@@ -9,9 +9,8 @@ from PIL import Image
 from io import BytesIO
 from fastapi import File, UploadFile, Form, Header
 from datetime import datetime
-from src.schemas import OcrDataReturn
 
-
+from src.schemas import OcrDataReturn, WorkoutDataReturn
 from src.ocr import hit_textract_api, process_raw_ocr
 
 
@@ -79,6 +78,39 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
         blob.upload_from_string(image_bytes, "image/jpeg")
         print(f"{image_hash} uploaded to {bucket_name}.")
 
+
+def merge_ocr_data(unmerged_data:List[OcrDataReturn], numSubs: int) -> OcrDataReturn:
+    # Assumptions
+    #1. each photo contains max possible  # undocumented SWO
+    pdb.set_trace()
+    merged_data:OcrDataReturn = unmerged_data[0]
+    
+    # Combine photo_hash from all unmerged_data
+    photo_hash = [data.photo_hash for data in unmerged_data]
+    merged_data.photo_hash = photo_hash
+
+    # Merge WorkoutDataReturn objects
+    wo_data: WorkoutDataReturn = merged_data.workout_data
+    
+    # add all sub-workouts from middle photos 
+    # Iterate over all elements in unmerged_data except first and last
+    # basically add  data from photo2 in  case with 3 photos
+    for data in unmerged_data[1:-1]:
+        wo_data.time.extend(data.workout_data.time[1:])
+        wo_data.meter.extend(data.workout_data.meter[1:])
+        wo_data.split.extend(data.workout_data.split[1:])
+        wo_data.sr.extend(data.workout_data.sr[1:])
+        wo_data.hr.extend(data.workout_data.hr[1:])
+        
+    #add remaining sub-workouts from last photo
+    last_subs_idx = -1*(numSubs%8)
+    wo_data.time.extend(unmerged_data[-1].workout_data.time[last_subs_idx:])
+    wo_data.meter.extend(unmerged_data[-1].workout_data.meter[last_subs_idx:])
+    wo_data.split.extend(unmerged_data[-1].workout_data.split[last_subs_idx:])
+    wo_data.sr.extend(unmerged_data[-1].workout_data.sr[last_subs_idx:])
+    wo_data.hr.extend(unmerged_data[-1].workout_data.hr[last_subs_idx:])
+    return merged_data
+    
 
 def convert_class_instances_to_dicts(sqlAlchemy_insts: list) -> List[dict]:
     """Reformat response retrieved by sqlAlchemy query from list of class instances to list of dicts"""

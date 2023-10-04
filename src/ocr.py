@@ -314,6 +314,7 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                     wo_dict["sr"].append(cell["text"][0])
                 elif cell["col"] == 5:
                     wo_dict["hr"].append(cell["text"][0])
+        # delete rest row - interval  workouts show # meters rowed during rest time
         if wo_dict['meter'][-1] and not wo_dict['time'][-1]:
             for lst in  wo_dict.values():
                 del lst[-1]          
@@ -399,5 +400,5 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     print("\nWorkout Data")
     print(workout_df)
 
-    processed_data = OcrDataReturn(workout_meta=clean_meta, workout_data=workout_data, photo_hash=photo_hash)
+    processed_data = OcrDataReturn(workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash])
     return processed_data

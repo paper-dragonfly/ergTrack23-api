@@ -24,7 +24,8 @@ from src.schemas import (
     PutUserSchema,
     PatchUserSchema,
     PostTeamDataSchema,
-    PostFeedbackSchema
+    PostFeedbackSchema,
+    PostErgImageSchema
 )
 from src.utils import (
     create_encrypted_token,
@@ -40,7 +41,8 @@ from src.helper import (
     calculate_watts, 
     calculate_cals,
     calculate_split_var,
-    add_user_info_to_workout)
+    add_user_info_to_workout,
+    merge_ocr_data)
 
 app = FastAPI()
 
@@ -226,30 +228,41 @@ async def patch_user(new_user_info: PatchUserSchema, authorization: str = Header
 
 
 @app.post("/ergImage")
-async def create_extract_and_process_ergImage(ergImg: UploadFile = File(...)):
+async def create_extract_and_process_ergImage(photo1: UploadFile, photo2: Union[UploadFile, None] = None, photo3: Union[UploadFile, None] = None, numSubs: Union[int, None] = None, authorization: str = Header(...)):
     """
     Receives UploadFile containing photo of erg screen,
     sends image to Textract for OCR, processes raw result, save img gcs bucket
     Returns processed data
     """
     try:
+        auth_uid = validate_user_token(authorization)
         tinit = datetime.now()
         print("running ergImage", tinit)
-        image_bytes = ergImg.file.read()
-        filename = ergImg.filename
-        ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
-        t4 = datetime.now()
-        upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash)
-        t5 = datetime.now()
-        d3 = t5 - t4
-        print("Time to add blob", d3)
-        tf = datetime.now()
-        dtot = tf - tinit
-        print("TOTAL TIME", dtot)
+        unmerged_ocr_data = []
+        ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
+        for img in ergImgs:
+            image_bytes= img.file.read()
+            filename = img.filename
+            ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
+            t4 = datetime.now()
+            upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0])
+            t5 = datetime.now()
+            d3 = t5 - t4
+            print("Time to add blob", d3)
+            unmerged_ocr_data.append(ocr_data)
+        if len(unmerged_ocr_data) == 1:
+            tf = datetime.now()
+            dtot = tf - tinit
+            print("TOTAL TIME", dtot)
+            return Response(body=vars(unmerged_ocr_data[0])) 
+        final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
+        return Response(body=vars(final_ocr_data))        
+    except InvalidTokenError as e:
+        print(e)
+        return Response(status_code=404, error_message=str(e))
     except Exception as e:
         print("/ergImage exception", e)
         return Response(status_code=400, error_message=str(e))
-    return Response(body=vars(ocr_data)) 
 
 
 @app.get("/workout")
