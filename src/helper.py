@@ -82,11 +82,10 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
 def merge_ocr_data(unmerged_data:List[OcrDataReturn], numSubs: int) -> OcrDataReturn:
     # Assumptions
     #1. each photo contains max possible  # undocumented SWO
-    pdb.set_trace()
     merged_data:OcrDataReturn = unmerged_data[0]
     
     # Combine photo_hash from all unmerged_data
-    photo_hash = [data.photo_hash for data in unmerged_data]
+    photo_hash = [data.photo_hash[0] for data in unmerged_data]
     merged_data.photo_hash = photo_hash
 
     # Merge WorkoutDataReturn objects

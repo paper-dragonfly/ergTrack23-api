@@ -308,6 +308,7 @@ async def create_workout(
             user_id = get_user_id(auth_uid, session)
             # create data entry (WorkoutLogTable  instance)
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
+            photo_hash_joined = "&nextphotohash&".join(workoutData.photoHash)
             workout_entry = WorkoutLogTable(
                 user_id=user_id,
                 description=workoutData.woMetaData["workoutName"],
@@ -320,7 +321,7 @@ async def create_workout(
                 split_variance = split_var,
                 watts = watts,
                 cal = calories,
-                image_hash=workoutData.photoHash,
+                image_hash=photo_hash_joined,
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
                 # TODO: add postToTeam to woMeetaData on react side

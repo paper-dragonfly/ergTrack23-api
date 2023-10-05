@@ -15,7 +15,7 @@ class PostErgImageSchema(BaseModel):
 class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
-    photoHash: str
+    photoHash: List[str]
 
 
 class PostWorkoutSchema2(BaseModel):
