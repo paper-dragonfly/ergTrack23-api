@@ -1,0 +1,15 @@
+sqlalchemy
+alembic
+hashlib
+Pillow
+fastapi
+PyYAML
+structlog
+firebase_admin
+pandas
+boto3
+pydantic
+cryptography
+pytest
+google-cloud-storage
+psycopg2
