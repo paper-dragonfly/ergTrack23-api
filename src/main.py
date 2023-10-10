@@ -7,6 +7,9 @@ import time
 import yaml
 from datetime import datetime, date 
 import os
+import threading 
+import structlog
+
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,6 +83,18 @@ firebase_admin.initialize_app()
 engine = create_engine(CONN_STR, echo=True)
 Session = sessionmaker(bind=engine)
 
+#logger
+log = structlog.get_logger()
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        structlog.dev.ConsoleRenderer(),
+    ]
+)
+log.info("Event logged")
+log.error('my eerror')
+log.debug('buggys')
 
 ######  END POINTS ######
 
@@ -236,8 +251,9 @@ async def create_extract_and_process_ergImage(photo1: UploadFile, photo2: Union[
     """
     try:
         auth_uid = validate_user_token(authorization)
-        tinit = datetime.now()
-        print("running ergImage", tinit)
+        log.debug('start POST ergImage')
+        # tinit = datetime.now()
+        # print("running ergImage", tinit)
         unmerged_ocr_data = []
         ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
         for img in ergImgs:
@@ -245,10 +261,16 @@ async def create_extract_and_process_ergImage(photo1: UploadFile, photo2: Union[
             filename = img.filename
             ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
             t4 = datetime.now()
-            upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0])
+            upload_blob_thread = threading.Thread(
+                target=upload_blob,
+                args=("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0]), 
+                name=f'UploadBlobThread_{filename}'
+                )
+            # upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0])
+            upload_blob_thread.start()
             t5 = datetime.now()
             d3 = t5 - t4
-            print("Time to add blob", d3)
+            print("Time to add blob. Skipped with threading? :", d3)
             unmerged_ocr_data.append(ocr_data)
         if len(unmerged_ocr_data) == 1:
             tf = datetime.now()
@@ -633,3 +655,4 @@ async def create_sandbox(
     pil_image = Image.open(BytesIO(byte_array))
     pil_image.show()
     return Response(body={"message": "success", "formdata": form_data})
+
