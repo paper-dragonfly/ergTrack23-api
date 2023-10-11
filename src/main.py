@@ -268,7 +268,7 @@ async def create_extract_and_process_ergImage(
     try:
         auth_uid = validate_user_token(authorization)
         log.debug("start POST ergImage")
-        # tinit = datetime.now()
+        tinit = datetime.now()
         # print("running ergImage", tinit)
         unmerged_ocr_data = []
         ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]

@@ -7,7 +7,7 @@ structlog
 firebase_admin
 pandas
 boto3
-pydantic
+pydantic==1.10.7
 cryptography
 pytest
 google-cloud-storage
