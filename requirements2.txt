@@ -1,6 +1,5 @@
 sqlalchemy
 alembic
-hashlib
 Pillow
 fastapi
 PyYAML
@@ -12,4 +11,7 @@ pydantic
 cryptography
 pytest
 google-cloud-storage
-psycopg2
+psycopg2-binary
+uvicorn
+pg8000
+python-multipart

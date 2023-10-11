@@ -1,4 +1,4 @@
-.venv_api23
+.venv_ergapi
 __pycache__/*
 *.pyc 
 ergImages
