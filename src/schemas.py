@@ -5,10 +5,17 @@ from datetime import date
 
 
 # Incoming post/put schema
+class PostErgImageSchema(BaseModel):
+    photo1: UploadFile = File(...) 
+    photo2: Optional[UploadFile]  
+    photo3: Optional[UploadFile] 
+    
+
+
 class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
-    photoHash: str
+    photoHash: List[str]
 
 
 class PostWorkoutSchema2(BaseModel):
@@ -74,7 +81,7 @@ class WorkoutDataReturn(BaseModel):
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
-    photo_hash: str
+    photo_hash: List[str]
     
 
 # API Response Obj

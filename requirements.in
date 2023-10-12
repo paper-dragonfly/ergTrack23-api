@@ -1,0 +1,17 @@
+sqlalchemy
+alembic
+Pillow
+fastapi
+PyYAML
+structlog
+firebase_admin
+pandas
+boto3
+pydantic==1.10.7
+cryptography
+pytest
+google-cloud-storage
+psycopg2-binary
+uvicorn
+pg8000
+python-multipart
