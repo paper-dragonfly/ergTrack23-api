@@ -118,12 +118,11 @@ async def read_login(authorization: str = Header(...)):
     Return encrypted token
     """
     id_token = authorization.split(" ")[1]
-    print("Auth val: ", authorization)
+    log.info("Auth val: ", authorization=authorization)
     try:
         # hack fix added delay - TODO find better  solution
-        print(datetime.now())
-        time.sleep(2.0)
-        print(datetime.now())
+        # time.sleep(2.0)
+        tinit = datetime.now()
         decoded_token = auth.verify_id_token(id_token)
         print("decoded token ", decoded_token)
         # token is valid
@@ -147,11 +146,15 @@ async def read_login(authorization: str = Header(...)):
                     session.commit()
                     team_id = None
             except Exception as e:
-                message = "cannot validate user or cannot add user to db"
-                print(message)
-                print(e)
+                log.error(
+                    "cannot validate user or cannot add user to db", e_message=str(e)
+                )
                 return Response(status_code=500, error_message=str(e))
         encrypted_token = create_encrypted_token(auth_uid)
+        tf = datetime.now()
+        dur = tf - tinit
+        log.info("Time to login", login_dur=dur)
+        return Response(body={"user_token": encrypted_token, "team_id": team_id})
     except auth.InvalidIdTokenError as err:
         print("Error: ", str(err))
         # Token invalid
@@ -160,7 +163,6 @@ async def read_login(authorization: str = Header(...)):
         return Response(
             status_code=400, error_message="no token recieved or other issue"
         )
-    return Response(body={"user_token": encrypted_token, "team_id": team_id})
 
 
 @app.get("/user")
@@ -253,7 +255,7 @@ async def patch_user(
 
 
 @app.post("/ergImage")
-async def create_extract_and_process_ergImage(
+def create_extract_and_process_ergImage(
     photo1: UploadFile,
     photo2: Union[UploadFile, None] = None,
     photo3: Union[UploadFile, None] = None,
@@ -286,14 +288,17 @@ async def create_extract_and_process_ergImage(
             upload_blob_thread.start()
             t5 = datetime.now()
             d3 = t5 - t4
-            print("Time to add blob. Skipped with threading? :", d3)
+            log.info("Time to add blob. Skipped with threading? :", blob_store_dur=d3)
             unmerged_ocr_data.append(ocr_data)
         if len(unmerged_ocr_data) == 1:
             tf = datetime.now()
             dtot = tf - tinit
-            print("TOTAL TIME", dtot)
+            log.info("TOTAL TIME", total_dur=dtot)
             return Response(body=vars(unmerged_ocr_data[0]))
         final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
+        tf = datetime.now()
+        dtot = tf - tinit
+        log.info("TOTAL TIME", total_dur=dtot)
         return Response(body=vars(final_ocr_data))
     except InvalidTokenError as e:
         print(e)
