@@ -34,7 +34,7 @@ def get_processed_ocr_data(
         raw_ocr_library = json.load(f)
     library_entries = raw_ocr_library.keys()
     # var below used for testing ocr - change to True for Prod
-    search_library = False
+    search_library = True
     # If yes -> grab raw response
     if search_library and photo_hash in library_entries:
         # get raw data using photo_hash
@@ -67,10 +67,10 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(image_hash)
     if blob.exists():
-        print("Duplicate: blob already exists in bucket")
+        log.info("Duplicate: blob already exists in bucket")
     else:
         blob.upload_from_string(image_bytes, "image/jpeg")
-        print(f"{image_hash} uploaded to {bucket_name}.")
+        log.info(f"{image_hash} uploaded to {bucket_name}.")
 
 
 def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int) -> OcrDataReturn:
@@ -160,7 +160,6 @@ def calculate_split_var(workout_metrics):
     if not splits:
         return 0
     split_var = round(max(splits) - min(splits), 1)
-    print("split_var: ", split_var)
     return split_var
 
 
