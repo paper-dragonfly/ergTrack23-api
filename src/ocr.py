@@ -3,6 +3,7 @@ import pandas as pd
 import boto3
 import pdb
 import yaml
+import structlog
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 from src.schemas import CustomError, CellData
 
@@ -13,8 +14,14 @@ with open("config/config.yaml", "r") as f:
 ACCESS_KEY = config_data["AWS_ACCESS_KEY_ID"]
 SECRET_KEY = config_data["AWS_SECRET_ACCESS_KEY"]
 
-client = boto3.client("textract", aws_access_key_id=ACCESS_KEY,
-    aws_secret_access_key=SECRET_KEY,region_name="us-east-1")
+client = boto3.client(
+    "textract",
+    aws_access_key_id=ACCESS_KEY,
+    aws_secret_access_key=SECRET_KEY,
+    region_name="us-east-1",
+)
+
+log = structlog.get_logger()
 
 
 def hit_textract_api(erg_image_bytearray):
@@ -59,7 +66,7 @@ def remove_blocks_before_time(word_index, cell_blocks) -> dict:
         if (not "Relationships" in block.keys()) or (
             not time_id in block["Relationships"][0]["Ids"]
         ):
-            print("remove", block["RowIndex"], block["ColumnIndex"])
+            log.debug("remove", row=block["RowIndex"], col=block["ColumnIndex"])
             time_index += 1
         else:
             time_row_index = block["RowIndex"]
@@ -76,7 +83,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
     # create a list of all the ids for words corresponding to workout data (no col heads)
     block_text_ids = []
     for block in cell_blocks:
-        #for rows with data (i.e. not column headings) 
+        # for rows with data (i.e. not column headings)
         if not block["RowIndex"] == time_row_index:
             try:
                 for id in block["Relationships"][0]["Ids"]:
@@ -99,17 +106,17 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
     try:
         int(word_index[block_text_ids[4]])
     except ValueError:
-        hr_present = False 
+        hr_present = False
 
     i = 0
-    for r in range(1,num_rows):  # fm 1 because first row is blank
-        for c in range(1,6): #cols 1-5
-            #add empty HR cell - no HR data
-            if not hr_present and c == 5: 
+    for r in range(1, num_rows):  # fm 1 because first row is blank
+        for c in range(1, 6):  # cols 1-5
+            # add empty HR cell - no HR data
+            if not hr_present and c == 5:
                 cell_data = {
                     "row": r,
                     "col": 5,
-                    "text": [""], 
+                    "text": [""],
                 }
             else:
                 cell_data = {
@@ -120,7 +127,6 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
                 }
                 i += 1
             table_data.append(cell_data)
-    print(table_data)
     return table_data
 
 
@@ -149,36 +155,39 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
             if block["BlockType"] == "CELL"
         ]
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
-        print('blocks before time removed')
-        print('cell blocks len', len(cell_blocks))
-        
+        log.debug(f"cell blocks len: {len(cell_blocks)}")
+
         # CHECK number of columns
         num_cols = cell_blocks[-1]["ColumnIndex"]
-        print(f"num cols: {num_cols}")
+        log.debug(f"num cols: {num_cols}")
 
         if not 1 < num_cols < 7:
             raise CustomError("extract_table_data failed, invalid column count")
-        #if num cols is 6 check if last two cols are empty and delete them if they are
+        # if num cols is 6 check if last two cols are empty and delete them if they are
         if num_cols == 6:
-            #create list of all col 5 and 6 cells
-            col56 = [block for block in cell_blocks if block['ColumnIndex'] in [5,6]]
+            # create list of all col 5 and 6 cells
+            col56 = [block for block in cell_blocks if block["ColumnIndex"] in [5, 6]]
             content = False
             # check if empty
             for block in col56:
                 if "Relationships" in block.keys():
-                    content = True 
+                    content = True
             if not content:
-                cell_blocks  = [block for block in cell_blocks if block['ColumnIndex'] not in [5,6]] 
-                num_cols = 4              
-            
+                cell_blocks = [
+                    block for block in cell_blocks if block["ColumnIndex"] not in [5, 6]
+                ]
+                num_cols = 4
+
         # if num cols is 2 or three seperate merged cols:
         if num_cols < 4:
-            print("Merged cols detected")
-            table_data = process_merged_cols(cell_blocks, time_row_index, word_index) # TODO: come back to add HR
-        else: 
+            log.info("Merged cols detected")
+            table_data = process_merged_cols(
+                cell_blocks, time_row_index, word_index
+            )  # TODO: come back to add HR
+        else:
             table_data = []
             for block in cell_blocks:
-                #  if cell is empty, add empty entry. 
+                #  if cell is empty, add empty entry.
                 if not "Relationships" in block.keys():
                     cell_data = add_empty_cell_if_needed(table_data, block)
                     if cell_data:
@@ -203,21 +212,24 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "text_id": [cell_data["text_ids"][-1]],
                             }
                         )
-                    #FIX HR gets lumped in with SR in col4 either as two words or as one 
-                    if block["ColumnIndex"] == 4 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
-                        #delete most recent cell entry in table_data - it contains the merged SR/HR data
-                        del table_data[-1] 
-                        # isolate SR and HR data 
+                    # FIX HR gets lumped in with SR in col4 either as two words or as one
+                    if block["ColumnIndex"] == 4 and (
+                        len(cell_data["text_ids"]) > 1
+                        or 4 < len(cell_data["text"][0]) < 7
+                    ):
+                        # delete most recent cell entry in table_data - it contains the merged SR/HR data
+                        del table_data[-1]
+                        # isolate SR and HR data
                         if len(cell_data["text_ids"]) > 1:
-                            sr = cell_data['text'][0]
-                            hr = cell_data['text'][1] 
-                            sr_text_id = cell_data['text_ids'][0]
-                            hr_text_id = ['from SR'] #for debugging
-                        else: 
-                            sr = cell_data['text'][0][:2]
+                            sr = cell_data["text"][0]
+                            hr = cell_data["text"][1]
+                            sr_text_id = cell_data["text_ids"][0]
+                            hr_text_id = ["from SR"]  # for debugging
+                        else:
+                            sr = cell_data["text"][0][:2]
                             hr = cell_data["text"][0][2:].strip()
-                            sr_text_id = ['altered - SRHR split'] #for debugging
-                            hr_text_id = ['from SR'] #for debugging
+                            sr_text_id = ["altered - SRHR split"]  # for debugging
+                            hr_text_id = ["from SR"]  # for debugging
                         table_data.append(
                             {
                                 "row": block["RowIndex"],
@@ -225,7 +237,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "text": [sr],
                                 "text_id": sr_text_id,
                             }
-                        )   
+                        )
                         table_data.append(
                             {
                                 "row": block["RowIndex"],
@@ -233,37 +245,48 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "text": [hr],
                                 "text_id": hr_text_id,
                             }
-                        ) 
+                        )
                         # add HR column heading if missing
-                        if table_data[4]['row'] == 2:
+                        if table_data[4]["row"] == 2:
                             hr_head = {
-                                "row": table_data[0]['row'],
+                                "row": table_data[0]["row"],
                                 "col": 5,
-                                "text": ['hr'],
-                                "text_id": ['fm manual']
+                                "text": ["hr"],
+                                "text_id": ["fm manual"],
                             }
-                        
-                            table_data.insert(4,hr_head)                        
+
+                            table_data.insert(4, hr_head)
                     # FIX SR gets lumped in with HR in col5 either as two words or as one (* assumes len(sr)==2, len(hr)==3)
-                    if block["ColumnIndex"] == 5 and (len(cell_data["text_ids"]) > 1 or 4 < len(cell_data['text'][0]) < 7):
+                    if block["ColumnIndex"] == 5 and (
+                        len(cell_data["text_ids"]) > 1
+                        or 4 < len(cell_data["text"][0]) < 7
+                    ):
                         # cell most recently added to table_data will be missing text - populate it from this HR cell
                         if len(cell_data["text_ids"]) > 1:
-                            table_data[-2]["text"][0] = cell_data['text'][0]
-                            table_data[-2]["text_ids"] = ['from HR'] #not neccessary but helpful for debugging 
+                            table_data[-2]["text"][0] = cell_data["text"][0]
+                            table_data[-2]["text_ids"] = [
+                                "from HR"
+                            ]  # not neccessary but helpful for debugging
                             del table_data[-1]["text"][0]
-                            del table_data[-1]["text_ids"][0] #not neccessary but cleaner
-                        else: 
-                            sr = cell_data['text'][0][:2]
+                            del table_data[-1]["text_ids"][
+                                0
+                            ]  # not neccessary but cleaner
+                        else:
+                            sr = cell_data["text"][0][:2]
                             hr = cell_data["text"][0][2:].strip()
                             table_data[-2]["text"][0] = sr
-                            table_data[-2]["text_ids"] = ['from HR'] #not neccessary - helpful for debugging
+                            table_data[-2]["text_ids"] = [
+                                "from HR"
+                            ]  # not neccessary - helpful for debugging
                             table_data[-1]["text"][0] = hr
-                            table_data[-1]["text_ids"] = ['altered - SRHR split'] #not neccessary - helpful for debugging
+                            table_data[-1]["text_ids"] = [
+                                "altered - SRHR split"
+                            ]  # not neccessary - helpful for debugging
             # Add HR col - all empty
-            if num_cols == 4 and table_data[-1]['col'] == 4:
+            if num_cols == 4 and table_data[-1]["col"] == 4:
                 for i in range(len(table_data) // 4):
-                    hr_index = (i + 1) * 5 -1
-                    first_data_row = table_data[0]['row']
+                    hr_index = (i + 1) * 5 - 1
+                    first_data_row = table_data[0]["row"]
                     cell_data = {
                         "row": first_data_row + i,
                         "col": 5,
@@ -281,7 +304,7 @@ def clean_table_data(table_data: List[dict]):
         # remove all cells before 'time'
         while "time" not in table_data[0]["text"]:
             del table_data[0]
-        #add col headings
+        # add col headings
         table_data[0]["text"] = ["time"]
         table_data[1]["text"] = ["meter"]
         table_data[2]["text"] = ["split"]
@@ -315,9 +338,9 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                 elif cell["col"] == 5:
                     wo_dict["hr"].append(cell["text"][0])
         # delete rest row - interval  workouts show # meters rowed during rest time
-        if wo_dict['meter'][-1] and not wo_dict['time'][-1]:
-            for lst in  wo_dict.values():
-                del lst[-1]          
+        if wo_dict["meter"][-1] and not wo_dict["time"][-1]:
+            for lst in wo_dict.values():
+                del lst[-1]
         return wo_dict
     except Exception as e:
         raise CustomError("compile_workout_data failed, invalid column count")
@@ -343,12 +366,16 @@ def extract_metadata(word_index: dict, image_raw_response: dict) -> List[str]:
 
 
 # clean metadata
-def clean_metadata(raw_meta: list) -> CleanMetaReturn:
+def clean_metadata(
+    raw_meta: list,
+) -> CleanMetaReturn:  # actually returning dict right now
     # Delete everything before wo_name
     meta = raw_meta
     try:
         view_detail_idx = [
-            i for i, item in enumerate(raw_meta) if "View" in item or "Detail" in item or "Verification:" in item
+            i
+            for i, item in enumerate(raw_meta)
+            if "View" in item or "Detail" in item or "Verification:" in item
         ][-1]
         meta = raw_meta[view_detail_idx + 1 :]
     except:
@@ -359,7 +386,7 @@ def clean_metadata(raw_meta: list) -> CleanMetaReturn:
         except:
             pass
     # pdb.set_trace()
-    if 2<= len(meta) <= 3:
+    if 2 <= len(meta) <= 3:
         meta_dict = {"wo_name": meta[0], "wo_date": meta[1]}
     elif len(meta) >= 4:
         meta_dict = {
@@ -380,25 +407,30 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     # pdb.set_trace()
     word_index = create_word_index(raw_response)
     table_data = extract_table_data(raw_response, word_index)
-    print("table_data: ", table_data)
+    log.debug("Table data: ", data=table_data)
     table_data_clean = clean_table_data(table_data)
-    print("table_data_clean: ", table_data_clean)
+    log.debug("table_data_clean: ", data=table_data_clean)
     workout_data = compile_workout_data(table_data_clean)
-    print("workout_data: ", workout_data)
+    log.debug("workout_data: ", data=workout_data)
     workout_df = pd.DataFrame(workout_data)
-    print(workout_df)
 
     raw_meta = extract_metadata(word_index, raw_response)
-    print("raw_meta: ", raw_meta)
+    log.debug("raw_meta: ", data=raw_meta)
     clean_meta = clean_metadata(raw_meta)
+    meta_df = pd.DataFrame([clean_meta])
 
+    # KEEP GOING FROM HERE ADDING LOGS. MAYBE MAKE CLEAN META INTO DF
     # Print Pretty
-    print("Metadata")
-    for m in clean_meta:
-        print(m + ":", clean_meta[m])
-    # print(clean_metadata(raw_meta))
-    print("\nWorkout Data")
-    print(workout_df)
+    log.debug("Metadata", data=meta_df)
+    log.debug("Workout Data", data=workout_df)
+    # print("Metadata")
+    # for m in clean_meta:
+    #     print(m + ":", clean_meta[m])
+    # # print(clean_metadata(raw_meta))
+    # print("\nWorkout Data")
+    # print(workout_df)
 
-    processed_data = OcrDataReturn(workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash])
+    processed_data = OcrDataReturn(
+        workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash]
+    )
     return processed_data

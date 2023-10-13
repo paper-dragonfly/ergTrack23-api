@@ -81,7 +81,7 @@ firebase_admin.initialize_app()
 
 
 # sqlalchemy setup
-engine = create_engine(CONN_STR, echo=True)
+engine = create_engine(CONN_STR, echo=False)
 Session = sessionmaker(bind=engine)
 
 # logger
@@ -93,9 +93,7 @@ structlog.configure(
         structlog.dev.ConsoleRenderer(),
     ]
 )
-log.info("Event logged")
-log.error("my eerror")
-log.debug("buggys")
+log.info("API Running")
 
 ######  END POINTS ######
 
@@ -117,14 +115,13 @@ async def read_login(authorization: str = Header(...)):
     Validate user with Firebase, add to ergTrack db if new, generate encrypted token
     Return encrypted token
     """
+    log.info("Started", endpoint="login", method="get")
     id_token = authorization.split(" ")[1]
-    log.info("Auth val: ", authorization=authorization)
     try:
         # hack fix added delay - TODO find better  solution
         # time.sleep(2.0)
         tinit = datetime.now()
         decoded_token = auth.verify_id_token(id_token)
-        print("decoded token ", decoded_token)
         # token is valid
         auth_uid = decoded_token["uid"]
         # check if user in ergtrack db, if not add user
@@ -147,7 +144,8 @@ async def read_login(authorization: str = Header(...)):
                     team_id = None
             except Exception as e:
                 log.error(
-                    "cannot validate user or cannot add user to db", e_message=str(e)
+                    "cannot validate user or cannot add user to db",
+                    error_message=str(e),
                 )
                 return Response(status_code=500, error_message=str(e))
         encrypted_token = create_encrypted_token(auth_uid)
@@ -156,10 +154,11 @@ async def read_login(authorization: str = Header(...)):
         log.info("Time to login", login_dur=dur)
         return Response(body={"user_token": encrypted_token, "team_id": team_id})
     except auth.InvalidIdTokenError as err:
-        print("Error: ", str(err))
+        log.error("Token Invalid ", error_message=str(err))
         # Token invalid
         return Response(status_code=400, error_message=f"Token invalin: {str(err)}")
     except:
+        log.error("No token recieved or other issue")
         return Response(
             status_code=400, error_message="no token recieved or other issue"
         )
@@ -171,6 +170,7 @@ async def read_user(authorization: str = Header(...)):
     Recieves user_id
     Returns all data from UserTable for that user
     """
+    log.info("Started", endpoint="user", method="get")
     try:
         # confirm data coming from valid user
         auth_uid = validate_user_token(authorization)
@@ -183,10 +183,10 @@ async def read_user(authorization: str = Header(...)):
             }
             return Response(body=user_info)
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("GET user Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -197,7 +197,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
     Updates database
     Returns success message
     """
-    print(new_user_info)
+    log.info("Started", endpoint="user", method="put")
     try:
         # confirm data coming from valid user
         auth_uid = validate_user_token(authorization)
@@ -211,10 +211,10 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
             session.commit()
             return Response(body={"message": "user update succeessful"})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("PUT user Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -229,17 +229,15 @@ async def patch_user(
     Updates database
     Returns success message
     """
+    log.info("Started", endpoint="user", method="patch")
     # confirm data coming from valid user
     try:
         auth_uid = validate_user_token(authorization)
-        print(new_user_info)
         filtered_new_user_info = new_user_info.todict()
-        print(filtered_new_user_info)
         with Session() as session:
             # should I add security layere that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = userId if userId else get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
-            # pdb.set_trace()
             # update user with new info
             for key in filtered_new_user_info:
                 setattr(user, key, filtered_new_user_info[key])
@@ -247,10 +245,10 @@ async def patch_user(
             session.commit()
             return Response(body={"message": "user update succeessful"})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("PATCH user Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -267,9 +265,9 @@ def create_extract_and_process_ergImage(
     sends image to Textract for OCR, processes raw result, save img gcs bucket
     Returns processed data
     """
+    log.info("Started", endpoint="ergImage", method="post")
     try:
         auth_uid = validate_user_token(authorization)
-        log.debug("start POST ergImage")
         tinit = datetime.now()
         # print("running ergImage", tinit)
         unmerged_ocr_data = []
@@ -296,36 +294,33 @@ def create_extract_and_process_ergImage(
             log.info("TOTAL TIME", total_dur=dtot)
             return Response(body=vars(unmerged_ocr_data[0]))
         final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
-        tf = datetime.now()
-        dtot = tf - tinit
+        dtot = datetime.now() - tinit
         log.info("TOTAL TIME", total_dur=dtot)
         return Response(body=vars(final_ocr_data))
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print("/ergImage exception", e)
-        return Response(status_code=400, error_message=str(e))
+        log.error("/ergImage exception", error_message=str(e))
+        raise e
 
 
 @app.get("/workout")
 async def read_workout(authorization: str = Header(...)):
     """Get all workout data for user"""
+    log.info("Started", endpoint="workout", method="get")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
-            print("workouts retreived")
-            print(workouts)
             workouts_processed = convert_class_instances_to_dicts(workouts)
-            print(workouts_processed)
             return Response(body={"workouts": workouts_processed})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("GET workout Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -338,9 +333,8 @@ async def create_workout(
     Add workout data to ergTrack db
     Retruns: success message
     """
-    # pdb.set_trace()
+    log.info("Started", endpoint="workout", method="post")
     # confirm data coming from valid user
-    print(workoutData)
     with Session() as session:
         try:
             auth_uid = validate_user_token(authorization)
@@ -367,7 +361,6 @@ async def create_workout(
                 image_hash=photo_hash_joined,
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
-                # TODO: add postToTeam to woMeetaData on react side
                 post_to_team=workoutData.woMetaData["postToTeam"],
             )
 
@@ -376,9 +369,10 @@ async def create_workout(
             session.commit()
             return Response(body={"message": "workout posted successfully"})
         except InvalidTokenError as e:
-            print(e)
+            log.error("Invalid Token Error", error_message=str(e))
             return Response(status_code=404, error_message=str(e))
         except Exception as e:
+            log.error("POST workout Error", error_message=str(e))
             return Response(status_code=500, error_message=str(e))
 
 
@@ -389,6 +383,7 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
     Deletes entry in workout_log with matching id
     Returns success message
     """
+    log.info("Started", endpoint="workout", method="delete")
     # confirm data coming from valid user
     try:
         auth_uid = validate_user_token(authorization)
@@ -398,9 +393,10 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
             session.commit()
             return Response(body={"message": "delete successful"})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
+        log.error("DELETE workout Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -411,12 +407,12 @@ async def read_team(authorization: str = Header(...)):
     Uses token to get user_id, queries user table for team_id
     returns: if user is on team - info for team matching team_id + if admin
     """
+    log.info("Started", endpoint="team", method="get")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             user_info = session.query(UserTable).get(user_id).__dict__
-            # pdb.set_trace()
             if user_info["team"]:
                 team = session.query(TeamTable).get(user_info["team"])
                 team_info = {
@@ -434,10 +430,10 @@ async def read_team(authorization: str = Header(...)):
             else:
                 return Response(body={"team_member": False})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("GET team Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -449,6 +445,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
     Adds teamID to team_id col for user  associated with userToken AND changes team_admin val to True
     Returns team name, [V2 - all workouts for team]
     """
+    log.info("Started", endpoint="team", method="post")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -474,7 +471,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 )
                 session.add(team_entry)
                 session.commit()
-                print("new team created")
+                log.info("New team created", team_name=teamData.teamName)
                 new_team_id = team_entry.team_id
             # update user's info
             user_id = get_user_id(auth_uid, session)
@@ -487,10 +484,10 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 body={"team_id": new_team_id, "team_name": teamData.teamName}
             )
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("POST team Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -505,15 +502,17 @@ async def update_team(
         teamData (PostTeamDataSchema): team name and team code
         authorization (str, optional): contains userToken -> auth_uid
 
+    Action:
+        updates team info
+
     Returns:
         Confirmation (Response):
     """
+    log.info("Started", endpoint="team", method="put")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             team = session.query(TeamTable).get(team_id)
-            print("TEAM", team)
-            pdb.set_trace()
             # update user with new info
             team.team_name = teamData.teamName
             team.team_code = teamData.teamCode
@@ -522,10 +521,10 @@ async def update_team(
             session.commit()
             return Response(body={"message": "team update succeessful"})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("PUT team Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -539,6 +538,7 @@ async def write_join_team(
     Posts id into team col of user
     Returns confirmation
     """
+    log.info("Started", endpoint="jointeam", method="patch")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -570,10 +570,10 @@ async def write_join_team(
                 }
             )
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("PATCH jointeam Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -586,6 +586,7 @@ async def read_teamlog(authorization: str = Header(...)):
     Gets all workouts from WorkoutLogTable done by teamMembers that chose to postToTeam
     Returns team workouts
     """
+    log.info("Started", endpoint="teamlog", method="get")
     try:
         # check authorized request
         auth_uid = validate_user_token(authorization)
@@ -617,13 +618,12 @@ async def read_teamlog(authorization: str = Header(...)):
             team_workouts_complete = add_user_info_to_workout(
                 workouts_processed, team_members_as_dicts
             )
-            print(team_workouts_complete)
             return Response(body={"team_workouts": team_workouts_complete})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("GET teamlog Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -634,6 +634,7 @@ async def read_team_info(authorization: str = Header(...)):
     Get user from  userToken, get user team, get team info, get member info
     Returns team info and team members' info
     """
+    log.info("Started", endpoint="teamadmin", method="get")
     try:
         # check authorized request
         auth_uid = validate_user_token(authorization)
@@ -660,10 +661,10 @@ async def read_team_info(authorization: str = Header(...)):
                 }
             )
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("GET teamadmin Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -680,6 +681,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
     Returns:
         Response : success message
     """
+    log.info("Started", endpoint="transferadmin", method="patch")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -692,10 +694,10 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
             session.commit()
             return Response(body={"message": "Update successful"})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("PATCH transferadmin Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 
@@ -706,6 +708,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
 async def create_feedback(
     feedbackInfo: PostFeedbackSchema, authorization: str = Header(...)
 ):
+    log.info("Started", endpoint="feedback", method="post")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
@@ -718,14 +721,19 @@ async def create_feedback(
             )
             session.add(entry)
             session.commit()
-            print("feedback added")
+            log.info(
+                "Feedback submitted",
+                fb_type=feedbackInfo.feedbackCategory,
+                comment=feedbackInfo.comment,
+                user=user_id,
+            )
             new_feedback_id = entry.feedback_id
             return Response(body={new_feedback_id: new_feedback_id})
     except InvalidTokenError as e:
-        print(e)
+        log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
     except Exception as e:
-        print(e)
+        log.error("POST feedback Error", error_message=str(e))
         return Response(status_code=500, error_message=str(e))
 
 

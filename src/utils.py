@@ -19,13 +19,14 @@ KEY = config_data["FERNET_KEY"]
 # create a Fernet instance using KEY
 fernet = Fernet(KEY)
 
+
 class InvalidTokenError(Exception):
     """Raised if userToken does not contain valid Secret String"""
-    
-    def __init__(self, message='Unauthorized Request: invalid token'):
+
+    def __init__(self, message="Unauthorized Request: invalid token"):
         self.message = message
         super().__init__(self.message)
-    
+
 
 def create_encrypted_token(auth_uid: str) -> str:
     # create personal hash token
@@ -38,13 +39,12 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
     # decrypt token
     token = authorization.split(" ")[1]
     decMessage_list = fernet.decrypt(token).decode().split("BREAK")
-    print(decMessage_list)
+    # print(decMessage_list)
     if decMessage_list[0] == SECRET_STRING:
         return decMessage_list[1]
     raise InvalidTokenError()
 
 
-def get_user_id(auth_uid: str, session)-> int:
+def get_user_id(auth_uid: str, session) -> int:
     user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
     return user.user_id
-    
