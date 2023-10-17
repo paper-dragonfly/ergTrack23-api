@@ -1,0 +1,5 @@
+[build-system]
+
+[project]
+name = "PACKAGENAME"
+version = "PACKAGEVERSION"

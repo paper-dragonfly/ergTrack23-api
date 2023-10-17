@@ -6,7 +6,7 @@ API for ergTrack app
 1. Clone repo from GitHub
 2. Create config folder with config.yaml file (secrets, not published on github)
 3. Create venv `$python3 -m venv path/to/venv` and activate `$source path/to/venv/bin/activate`
-4. Install required packages  `$pip install requirements.txt`
+4. Install required packages  `$pip install -r requirements.txt`
 4. Download Google Cloud SDK (https://cloud.google.com/sdk/docs/install)
     * Need to be authenticated and connected to ergtracker project. Your account must be given permissions to access the project. 
 5. Set up auth proxy to connect to remote database: (https://cloud.google.com/sql/docs/postgres/connect-auth-proxy#macos-64-bit) 
