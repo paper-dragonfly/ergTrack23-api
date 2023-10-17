@@ -1,0 +1,18 @@
+---
+FERNET_KEY: alphanumeric_key_for_encoding_and_decoding_user_token
+
+SECRET_STRING: some_secret_string
+
+cloud_bucket: gs://your_erg_photo_bucket
+
+# GCLOUD_SA_KEY: key_gcloud_ergtrack23_api_sa2.json
+
+AWS_ACCESS_KEY_ID: alphanumeric_aws_key
+AWS_SECRET_ACCESS_KEY: another_alphanumeric_aws_key
+
+db_conn_str:
+  local: postgresql://user:password@localhost:port/database_name
+  docker_compose: postgresql://postgres-docker:postgres-docker-pw@db_container:port/database_name
+  hybrid: postgresql+pg8000://gcp_user:password@host:port/database_name
+  docker_hybrid: postgresql+pg8000://gcp_user:password@host.docker.internal:port/database_name
+  prod: postgresql+pg8000://gcp_user:password@/database_name?unix_sock=/cloudsql/gloud_project_id:us-east1:google_cloud_sql_instance_name/.s.PGSQL.5432

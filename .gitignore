@@ -6,7 +6,7 @@ ergImagesGoogleDrive.zip
 ergImagesGooglePhotos.zip
 learn-auth-0423-firebase-adminsdk-key.json
 ergtracker-firebase-adminsdk.json
-config/*
+config/config.yaml
 key_generator.py
 cloud-sql-proxy 
 key-ergtracker23apisa1-13b7427183ec.json
