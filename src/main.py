@@ -35,6 +35,8 @@ from src.utils import (
     validate_user_token,
     get_user_id,
     InvalidTokenError,
+    CONN_STR,
+    config_data
 )
 from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
@@ -60,13 +62,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load config file values
-with open("config/config.yaml", "r") as f:
-    config_data = yaml.load(f, Loader=yaml.FullLoader)
-
 # set db connection string based on run environment
 DEV_ENV = os.getenv("DEV_ENV")
-CONN_STR = config_data["db_conn_str"][DEV_ENV]
 SECRET_STRING = config_data["SECRET_STRING"]
 # GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
 os.environ["AWS_ACCESS_KEY_ID"] = config_data["AWS_ACCESS_KEY_ID"]
@@ -77,7 +74,8 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = config_data["AWS_SECRET_ACCESS_KEY"]
 # cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 # cred = credentials.Certificate(GCLOUD_SA_KEY) # I don't think this is right, points to file name not path.
 # when no 'cred' given, searches for default
-firebase_admin.initialize_app()
+if DEV_ENV != "docker_compose":
+    firebase_admin.initialize_app()
 
 
 # sqlalchemy setup
@@ -115,6 +113,7 @@ async def read_login(authorization: str = Header(...)):
     Validate user with Firebase, add to ergTrack db if new, generate encrypted token
     Return encrypted token
     """
+    import pdb; pdb.set_trace()
     log.info("Started", endpoint="login", method="get")
     id_token = authorization.split(" ")[1]
     try:

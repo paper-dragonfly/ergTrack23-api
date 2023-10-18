@@ -1,6 +1,7 @@
 from src import utils
+from tests import utils as tu
 
 def test_token_creation_and_validation():
-    token = utils.create_encrypted_token("fake-auth-uid")
-    auth_uid = utils.validate_user_token(token)
-    print(auth_uid)
+    original_uid = "fake-auth-uid"
+    final_uid = utils.validate_user_token(tu.generate_token(original_uid))
+    assert final_uid == original_uid

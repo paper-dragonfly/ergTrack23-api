@@ -6,10 +6,7 @@ import yaml
 import structlog
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 from src.schemas import CustomError, CellData
-
-# Load config file values
-with open("config/config.yaml", "r") as f:
-    config_data = yaml.load(f, Loader=yaml.FullLoader)
+from src.utils import config_data
 
 ACCESS_KEY = config_data["AWS_ACCESS_KEY_ID"]
 SECRET_KEY = config_data["AWS_SECRET_ACCESS_KEY"]
