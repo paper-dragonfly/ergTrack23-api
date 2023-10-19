@@ -19,7 +19,15 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - DEV_ENV=docker_compose
-    command: sh -c "python db_init_docker.py && alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8080"
+    command: sh -c "python db_init_docker.py && alembic upgrade head && python src/loop.py"
+    # uvicorn src.main:app --host 0.0.0.0 --port 8080
+    volumes:
+      - ./src:/ergtrack23api/src
+      - ./alembic:/ergtrack23api/alembic
+      - ./config:/ergtrack23api/config
+      - ./tests:/ergtrack23api/tests
+    # stdin_open: true # docker run -i
+    # tty: true   
 
 volumes:
   db:
