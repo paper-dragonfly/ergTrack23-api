@@ -113,7 +113,6 @@ async def read_login(authorization: str = Header(...)):
     Validate user with Firebase, add to ergTrack db if new, generate encrypted token
     Return encrypted token
     """
-    import pdb; pdb.set_trace()
     log.info("Started", endpoint="login", method="get")
     id_token = authorization.split(" ")[1]
     try:
@@ -208,7 +207,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
                 setattr(user, key, value)
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update succeessful"})
+            return Response(body={"message": "user update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
@@ -363,7 +362,7 @@ async def create_workout(
                 post_to_team=workoutData.woMetaData["postToTeam"],
             )
 
-            # use sqlAlchemy to add entryy to db
+            # use sqlAlchemy to add entry to db
             session.add(workout_entry)
             session.commit()
             return Response(body={"message": "workout posted successfully"})
