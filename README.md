@@ -36,3 +36,12 @@ If you encounter the error
 ```An error occurred: SCRAM authentication requires libpq version 10 or above```
 You need to rebuild your image with this env var
 ```export DOCKER_DEFAULT_PLATFORM=linux/amd64```
+
+
+### Running Integration Tests in Docker
+1. Build the images, containers, and network.
+```docker-compose up --build```
+2. Exec into the `api` container. Docker Desktop can help you find the container id.
+```docker exec -it <container-id> /bin/bash```
+3. Run tests in debugger and logging mode.
+```pytest -s```
