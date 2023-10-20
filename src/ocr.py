@@ -402,7 +402,8 @@ def clean_metadata(
         meta_dict = {"wo_name": meta_combo_string, "wo_date": ""}
     return meta_dict
 
-
+# I wonder how long this takes to run
+# there might be a way to speed this up with numpy
 def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     # pdb.set_trace()
     word_index = create_word_index(raw_response)
@@ -412,6 +413,7 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     log.debug("table_data_clean: ", data=table_data_clean)
     workout_data = compile_workout_data(table_data_clean)
     log.debug("workout_data: ", data=workout_data)
+    # I think dataframes might be a bit slow. helpful for exploratory analysis but not ideal for production
     workout_df = pd.DataFrame(workout_data)
 
     raw_meta = extract_metadata(word_index, raw_response)

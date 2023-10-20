@@ -51,6 +51,7 @@ def get_processed_ocr_data(
         d1 = t2 - t1
         log.info("Time for Textract to complete OCR", duration=d1)
         # save raw_resp to raw_ocr library
+        # we can probably only open this file once?
         with open("src/rawocr.json", "w") as f:
             raw_ocr_library[photo_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
