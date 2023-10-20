@@ -563,7 +563,7 @@ async def write_join_team(
             session.commit()
             return Response(
                 body={
-                    "message": "user update succeessful - team joined",
+                    "message": "user update successful - team joined",
                     "team_id": team_id,
                 }
             )
