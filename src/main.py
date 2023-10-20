@@ -82,15 +82,18 @@ firebase_admin.initialize_app()
 engine = create_engine(CONN_STR, echo=False)
 Session = sessionmaker(bind=engine)
 
-# logger
-log = structlog.get_logger()
+if DEV_ENV == "prod":
+    renderer = structlog.processors.JSONRenderer()
+else:
+    renderer = structlog.dev.ConsoleRenderer()
+
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
-        structlog.dev.ConsoleRenderer(),
-    ]
+        renderer]
 )
+log = structlog.get_logger()
 log.info("API Running")
 
 ######  END POINTS ######
