@@ -85,9 +85,7 @@ Session = sessionmaker(bind=engine)
 
 if DEV_ENV == "prod":
     extra_processors = [structlog.processors.JSONRenderer(),
-                        u.add_author_key_processor,
-                        u.convert_level_to_severity,
-                        u.convert_event_to_message]
+                        u.custom_processor]
 else:
     extra_processors = [structlog.dev.ConsoleRenderer()]
 

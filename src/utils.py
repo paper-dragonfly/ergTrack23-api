@@ -50,14 +50,22 @@ def get_user_id(auth_uid: str, session) -> int:
     return user.user_id
 
 
-def add_author_key_processor(logger, log_method, event_dict: dict) -> dict:
+def custom_processor(logger, log_method, event_json_str: str) -> str:
+    event_dict = json.loads(event_json_str)
+
+    event_dict = _add_author_key(event_dict)    
+    event_dict = _convert_level_to_severity(event_dict)
+    event_dict = _convert_event_to_message(event_dict)
+    return json.dumps(event_dict)
+
+
+def _add_author_key(event_dict: dict) -> dict:
     event_dict['author'] = 'api-code'
     return event_dict
 
 
-def convert_level_to_severity(logger, log_method, event_dict: dict) -> dict:
+def _convert_level_to_severity(event_dict: dict) -> dict:
     """Mapping from structlog log level to Google Cloud severity"""
-    
     level_to_severity = {
         'debug': 'DEBUG',
         'info': 'INFO',
@@ -66,16 +74,14 @@ def convert_level_to_severity(logger, log_method, event_dict: dict) -> dict:
         'exception': 'ERROR',
         'critical': 'CRITICAL',
     }
-    
     if 'level' in event_dict:
-        event_dict['severity'] = level_to_severity.get(event_dict['level'], 'DEFAULT')
+        event_dict['severity'] = level_to_severity[event_dict['level']]
         del event_dict['level']
     return event_dict
 
 
-def convert_event_to_message(logger, log_method, event_dict: dict) -> dict:
+def _convert_event_to_message(event_dict: dict) -> dict:
     """Convert structlog event to message for Google Cloud"""
-    
     if 'event' in event_dict:
         event_dict['message'] = event_dict['event']
         del event_dict['event']
