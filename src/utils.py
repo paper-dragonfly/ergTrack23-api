@@ -48,3 +48,35 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
 def get_user_id(auth_uid: str, session) -> int:
     user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
     return user.user_id
+
+
+def add_author_key_processor(logger, log_method, event_dict: dict) -> dict:
+    event_dict['author'] = 'api-code'
+    return event_dict
+
+
+def convert_level_to_severity(logger, log_method, event_dict: dict) -> dict:
+    """Mapping from structlog log level to Google Cloud severity"""
+    
+    level_to_severity = {
+        'debug': 'DEBUG',
+        'info': 'INFO',
+        'warning': 'WARNING',
+        'error': 'ERROR',
+        'exception': 'ERROR',
+        'critical': 'CRITICAL',
+    }
+    
+    if 'level' in event_dict:
+        event_dict['severity'] = level_to_severity.get(event_dict['level'], 'DEFAULT')
+        del event_dict['level']
+    return event_dict
+
+
+def convert_event_to_message(logger, log_method, event_dict: dict) -> dict:
+    """Convert structlog event to message for Google Cloud"""
+    
+    if 'event' in event_dict:
+        event_dict['message'] = event_dict['event']
+        del event_dict['event']
+    return event_dict

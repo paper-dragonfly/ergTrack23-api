@@ -36,6 +36,7 @@ from src.utils import (
     get_user_id,
     InvalidTokenError,
 )
+from src import utils as u
 from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts,
@@ -83,15 +84,18 @@ engine = create_engine(CONN_STR, echo=False)
 Session = sessionmaker(bind=engine)
 
 if DEV_ENV == "prod":
-    renderer = structlog.processors.JSONRenderer()
+    extra_processors = [structlog.processors.JSONRenderer(),
+                        u.add_author_key_processor,
+                        u.convert_level_to_severity,
+                        u.convert_event_to_message]
 else:
-    renderer = structlog.dev.ConsoleRenderer()
+    extra_processors = [structlog.dev.ConsoleRenderer()]
 
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
-        renderer]
+        ] + extra_processors
 )
 log = structlog.get_logger()
 log.info("API Running")
