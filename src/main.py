@@ -173,6 +173,8 @@ async def read_user(authorization: str = Header(...)):
         # confirm data coming from valid user
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            # we can return the entire user with get_user_id so that you dont need
+            # to make a second query
             user_id = get_user_id(auth_uid, session)
             user = session.query(UserTable).get(user_id)
             user_info = {
@@ -275,6 +277,7 @@ def create_extract_and_process_ergImage(
             filename = img.filename
             ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
             t4 = datetime.now()
+            # let's make sure this threading works as expected
             upload_blob_thread = threading.Thread(
                 target=upload_blob,
                 args=("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0]),
@@ -410,6 +413,7 @@ async def read_team(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
+            # we can just do joins here to avoid multiple queries
             user_info = session.query(UserTable).get(user_id).__dict__
             if user_info["team"]:
                 team = session.query(TeamTable).get(user_info["team"])
@@ -591,6 +595,7 @@ async def read_teamlog(authorization: str = Header(...)):
         # get user_ids for team members
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
+            # we can do a join here to avoid two queries
             team_id = (
                 session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
             )
@@ -637,6 +642,7 @@ async def read_team_info(authorization: str = Header(...)):
         # check authorized request
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            # we can do joins here to speed this up
             user_id = get_user_id(auth_uid, session)
             team_id = (
                 session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
@@ -685,6 +691,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
         with Session() as session:
             # should I add security layer that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = get_user_id(auth_uid, session)
+            # we can do joins here to avoid multiple queries
             old_admin = session.query(UserTable).get(user_id)
             new_admin = session.query(UserTable).get(new_admin_id)
             setattr(old_admin, "team_admin", False)
