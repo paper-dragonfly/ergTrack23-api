@@ -84,12 +84,18 @@ Session = sessionmaker(bind=engine)
 
 # logger
 log = structlog.get_logger()
+
+
+if DEV_ENV == "prod":
+    renderer = structlog.processors.JSONRenderer()
+else:
+    renderer = structlog.dev.ConsoleRenderer()
+
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
-        structlog.dev.ConsoleRenderer(),
-    ]
+        renderer]
 )
 log.info("API Running")
 
