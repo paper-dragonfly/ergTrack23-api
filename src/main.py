@@ -35,8 +35,6 @@ from src.utils import (
     validate_user_token,
     get_user_id,
     InvalidTokenError,
-    CONN_STR,
-    config_data
 )
 from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
@@ -62,8 +60,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Load config file values
+with open("config/config.yaml", "r") as f:
+    config_data = yaml.load(f, Loader=yaml.FullLoader)
+
 # set db connection string based on run environment
 DEV_ENV = os.getenv("DEV_ENV")
+CONN_STR = config_data["db_conn_str"][DEV_ENV]
 SECRET_STRING = config_data["SECRET_STRING"]
 # GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
 os.environ["AWS_ACCESS_KEY_ID"] = config_data["AWS_ACCESS_KEY_ID"]

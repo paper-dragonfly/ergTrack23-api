@@ -4,14 +4,14 @@ import pdb
 import yaml
 from PIL import Image
 from io import BytesIO
-from typing import Union, Dict, List, Tuple, ByteString
+from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
 
 from src.database import UserTable, WorkoutLogTable
 
-
-with open("./config/config.yaml", "r") as f:
+# Load vals from config
+with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
 
 # set db connection string based on run environment
@@ -32,7 +32,7 @@ class InvalidTokenError(Exception):
         super().__init__(self.message)
 
 
-def create_encrypted_token(auth_uid: str) -> ByteString:
+def create_encrypted_token(auth_uid: str) -> str:
     # create personal hash token
     unencrypted_string = SECRET_STRING + "BREAK" + auth_uid
     encrypted_token = fernet.encrypt(unencrypted_string.encode())
@@ -52,5 +52,3 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
 def get_user_id(auth_uid: str, session) -> int:
     user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
     return user.user_id
-
-
