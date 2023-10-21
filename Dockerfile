@@ -15,9 +15,6 @@ COPY alembic.ini .
 COPY db_init_docker.py .
 COPY README.md .
 COPY src src 
-# TODO mount this stuff
-COPY config config
-COPY tests tests
 
 
 #  this DEV_ENV is over-written in docker compose
