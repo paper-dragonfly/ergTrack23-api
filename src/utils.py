@@ -1,3 +1,4 @@
+import os
 import json
 import pdb
 import yaml
@@ -7,12 +8,15 @@ from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
 
-from src.ocr import hit_textract_api, process_raw_ocr
 from src.database import UserTable, WorkoutLogTable
 
 # Load vals from config
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)
+
+# set db connection string based on run environment
+DEV_ENV = os.getenv("DEV_ENV")
+CONN_STR = config_data["db_conn_str"][DEV_ENV]
 
 SECRET_STRING = config_data["SECRET_STRING"]
 KEY = config_data["FERNET_KEY"]

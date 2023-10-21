@@ -76,7 +76,8 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = config_data["AWS_SECRET_ACCESS_KEY"]
 # Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
 # cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 # when no 'cred' given, searches for default
-firebase_admin.initialize_app()
+if DEV_ENV != "docker_compose":
+    firebase_admin.initialize_app()
 
 
 # sqlalchemy setup
@@ -212,7 +213,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
                 setattr(user, key, value)
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update succeessful"})
+            return Response(body={"message": "user update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return Response(status_code=404, error_message=str(e))
@@ -367,7 +368,7 @@ async def create_workout(
                 post_to_team=workoutData.woMetaData["postToTeam"],
             )
 
-            # use sqlAlchemy to add entryy to db
+            # use sqlAlchemy to add entry to db
             session.add(workout_entry)
             session.commit()
             return Response(body={"message": "workout posted successfully"})
@@ -568,7 +569,7 @@ async def write_join_team(
             session.commit()
             return Response(
                 body={
-                    "message": "user update succeessful - team joined",
+                    "message": "user update successful - team joined",
                     "team_id": team_id,
                 }
             )

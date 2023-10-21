@@ -15,3 +15,6 @@ psycopg2-binary
 uvicorn
 pg8000
 python-multipart
+pip-tools
+flake8
+httpx
