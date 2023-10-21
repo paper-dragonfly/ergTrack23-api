@@ -36,6 +36,7 @@ from src.utils import (
     get_user_id,
     InvalidTokenError,
 )
+from src import utils as u
 from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts,
@@ -68,14 +69,12 @@ with open("config/config.yaml", "r") as f:
 DEV_ENV = os.getenv("DEV_ENV")
 CONN_STR = config_data["db_conn_str"][DEV_ENV]
 SECRET_STRING = config_data["SECRET_STRING"]
-# GCLOUD_SA_KEY = config_data['GCLOUD_SA_KEY']
 os.environ["AWS_ACCESS_KEY_ID"] = config_data["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = config_data["AWS_SECRET_ACCESS_KEY"]
 
 # initialize Firebase Admin SDK
 # Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
 # cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
-# cred = credentials.Certificate(GCLOUD_SA_KEY) # I don't think this is right, points to file name not path.
 # when no 'cred' given, searches for default
 if DEV_ENV != "docker_compose":
     firebase_admin.initialize_app()
@@ -85,15 +84,19 @@ if DEV_ENV != "docker_compose":
 engine = create_engine(CONN_STR, echo=False)
 Session = sessionmaker(bind=engine)
 
-# logger
-log = structlog.get_logger()
+if DEV_ENV == "prod":
+    extra_processors = [structlog.processors.JSONRenderer(),
+                        u.custom_processor]
+else:
+    extra_processors = [structlog.dev.ConsoleRenderer()]
+
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
-        structlog.dev.ConsoleRenderer(),
-    ]
+        ] + extra_processors
 )
+log = structlog.get_logger()
 log.info("API Running")
 
 ######  END POINTS ######
