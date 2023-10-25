@@ -7,6 +7,7 @@ import structlog
 from src.schemas import OcrDataReturn, CleanMetaReturn, WorkoutDataReturn
 from src.schemas import CustomError, CellData
 
+
 # Load config file values
 with open("config/config.yaml", "r") as f:
     config_data = yaml.load(f, Loader=yaml.FullLoader)

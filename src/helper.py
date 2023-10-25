@@ -10,6 +10,7 @@ from io import BytesIO
 from fastapi import File, UploadFile, Form, Header
 from datetime import datetime
 import structlog
+from time import time
 
 from src.schemas import OcrDataReturn, WorkoutDataReturn
 from src.ocr import hit_textract_api, process_raw_ocr
@@ -18,47 +19,53 @@ log = structlog.get_logger()
 
 
 def get_processed_ocr_data(
-    erg_photo_filename: str, image_bytes: bytes
+    erg_photo_filename: str, image_bytes: bytes, read_from_cache: bool = True, write_to_cache: bool = True
 ) -> OcrDataReturn:
     """
     Receives: erg image filename & bytes
     Get raw_ocr (retrieve from library or from AWS Textract) and process
     Returns: processed workout data
     """
-    t1 = datetime.now()
+    raw_textract_resp = None
+
     # convert bytes to byte array & create photo_hash
     byte_array = bytearray(image_bytes)
     photo_hash = sha256(byte_array).hexdigest()
     # Check if image is already in raw_ocr library
-    with open("src/rawocr.json", "r") as f:
-        raw_ocr_library = json.load(f)
-    library_entries = raw_ocr_library.keys()
-    # var below used for testing ocr - change to True for Prod
-    search_library = True
-    # If yes -> grab raw response
-    if search_library and photo_hash in library_entries:
-        # get raw data using photo_hash
-        raw_textract_resp = raw_ocr_library[photo_hash]
-        t2 = datetime.now()
-        log.info("Raw OCR from library")
+    if read_from_cache:
+        with open("src/rawocr.json", "r") as f:
+            raw_ocr_library = json.load(f)
+        library_entries = raw_ocr_library.keys()
+        # var below used for testing ocr - change to True for Prod
+        search_library = True
+        # If yes -> grab raw response
+        if search_library and photo_hash in library_entries:
+            # get raw data using photo_hash
+            raw_textract_resp = raw_ocr_library[photo_hash]
+            log.info("Raw OCR from library")
     # If no -> create byte array, display img, send to textract
-    else:
+    textract_duration = None
+    if not read_from_cache or raw_textract_resp is None:
         # open image (dev only) + send to AWS Textract for OCR extraction
         # pil_image = Image.open(BytesIO(byte_array))
         # pil_image.show()
+        start = time()
         raw_textract_resp = hit_textract_api(byte_array)
-        t2 = datetime.now()
-        d1 = t2 - t1
-        log.info("Time for Textract to complete OCR", duration=d1)
+        textract_duration = time() - start
+        log.info("hit_textract_api duration", duration_s=textract_duration)
         # save raw_resp to raw_ocr library
-        with open("src/rawocr.json", "w") as f:
-            raw_ocr_library[photo_hash] = raw_textract_resp
-            json.dump(raw_ocr_library, f)
+        if write_to_cache:
+            with open("src/rawocr.json", "w") as f:
+                raw_ocr_library[photo_hash] = raw_textract_resp
+                json.dump(raw_ocr_library, f)
+    start = time()
     processed_data = process_raw_ocr(raw_textract_resp, photo_hash)
-    t3 = datetime.now()
-    d2 = t3 - t2
-    log.info("Time to process raw data", process_dur=d2)
-    return processed_data
+    processing_duration = time() - start
+    log.info("process_raw_ocr duration", duration_s=processing_duration)
+    return {
+        "data": processed_data,
+        "textract_duration": textract_duration,
+        "processing_duration": processing_duration}
 
 
 def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
