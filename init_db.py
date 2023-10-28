@@ -12,10 +12,10 @@ def execute_command(cmd, max_retries, wait_time):
             return True
         else:
             retry_count += 1
-            print(f"FAILED, RETRYING: {cmd}\n {result.stderr})
+            print(f"FAILED, RETRYING: {cmd}\n {result.stderr}")
             time.sleep(wait_time)
 
-    print(f"FAILED PERMANENTLY: {cmd}\n {result.stderr})
+    print(f"FAILED PERMANENTLY: {cmd}\n {result.stderr}")
     return False
 
 if __name__ == "__main__":
