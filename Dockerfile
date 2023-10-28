@@ -12,7 +12,6 @@ RUN mkdir -p ./src
 RUN mkdir -p ./alembic
 COPY alembic alembic
 COPY alembic.ini .
-COPY db_init_docker.py .
 COPY README.md .
 COPY src src 
 
