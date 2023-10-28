@@ -21,8 +21,8 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - DEV_ENV=docker_compose
-    command: sh -c "python init_db.py && tail -F anything"
-    # command: sh -c "python db_init_docker.py && alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8080"
+    command: sh -c "python init_db.py && tail -F non-existent-file-to-cause-infinite-loop"
+    # command: sh -c "python init_db.py && uvicorn src.main:app --host 0.0.0.0 --port 8080"
     volumes:
       - ./:/ergtrack23api
 
