@@ -1,31 +1,30 @@
 services:
-  db_container:
-    image: postgres:14.8-alpine
+  db:
+    # to fix SCRAM authentication error
+    image: postgres:13.3-alpine
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres-docker
-      - POSTGRES_PASSWORD=postgres-docker-pw
-    volumes:
-      - db:/var/lib/postgresql/data
+      - POSTGRES_USER=user1
+      - POSTGRES_PASSWORD=pw1
+      - POSTGRES_DB=ergtrack
+    # volumes:
+      # - db:/var/lib/postgresql/data
 
   api:
     build: . #find dockerfile in this dir and build docker image
     depends_on:
-      - db_container
+      - db
     ports:
       - "8080:8080"
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - DEV_ENV=docker_compose
-    command: sh -c "python db_init_docker.py && alembic upgrade head && tail -F anything"
-    # uvicorn src.main:app --host 0.0.0.0 --port 8080
+    command: sh -c "python init_db.py && tail -F non-existent-file-to-cause-infinite-loop"
+    # command: sh -c "python init_db.py && uvicorn src.main:app --host 0.0.0.0 --port 8080"
     volumes:
-      - ./src:/ergtrack23api/src
-      - ./alembic:/ergtrack23api/alembic
-      - ./config:/ergtrack23api/config
-      - ./tests:/ergtrack23api/tests
+      - ./:/ergtrack23api
 
 volumes:
   db:
