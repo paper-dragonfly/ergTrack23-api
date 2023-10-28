@@ -5,17 +5,17 @@ def execute_command(cmd, max_retries, wait_time):
     retry_count = 0
 
     while retry_count < max_retries:
-        result = subprocess.run(cmd, shell=True)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
         if result.returncode == 0:
             print(f"SUCCESS: {cmd}")
             return True
         else:
             retry_count += 1
-            print(f"FAILED: {cmd}. Attempt {retry_count}/{max_retries}. Retrying in {wait_time} seconds...")
+            print(f"FAILED, RETRYING: {cmd}\n {result.stderr})
             time.sleep(wait_time)
 
-    print(f"FAILED PERMANENTLY: {cmd}")
+    print(f"FAILED PERMANENTLY: {cmd}\n {result.stderr})
     return False
 
 if __name__ == "__main__":
