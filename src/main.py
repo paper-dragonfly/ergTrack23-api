@@ -76,9 +76,10 @@ os.environ["AWS_SECRET_ACCESS_KEY"] = config_data["AWS_SECRET_ACCESS_KEY"]
 # Note: can either store credentials as environment variable: export GOOGLE_APPLICATION_CREDENTIALS =  'path/to/sercice-account-key.json' OR use path-str
 # cred = credentials.Certificate(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"))
 # when no 'cred' given, searches for default
-if DEV_ENV != "docker_compose":
+if DEV_ENV == "docker_compose":
+    firebase_admin.initialize_app(options=config_data["firebase"])
+else:
     firebase_admin.initialize_app()
-
 
 # sqlalchemy setup
 engine = create_engine(CONN_STR, echo=False)

@@ -16,3 +16,6 @@ db_conn_str:
   hybrid: postgresql+pg8000://gcp_user:password@host:port/database_name
   docker_hybrid: postgresql+pg8000://gcp_user:password@host.docker.internal:port/database_name
   prod: postgresql+pg8000://gcp_user:password@/database_name?unix_sock=/cloudsql/gloud_project_id:us-east1:google_cloud_sql_instance_name/.s.PGSQL.5432
+
+firebase:
+  projectId: ergtrack-dev

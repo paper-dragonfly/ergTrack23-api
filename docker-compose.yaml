@@ -21,6 +21,7 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - DEV_ENV=docker_compose
+      - FIREBASE_AUTH_EMULATOR_HOST="host.docker.internal:9099"
     command: sh -c "python init_db.py && tail -F non-existent-file-to-cause-infinite-loop"
     # command: sh -c "python init_db.py && uvicorn src.main:app --host 0.0.0.0 --port 8080"
     volumes:
