@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
-
+import uuid
 from src.database import UserTable, WorkoutLogTable
 
 # Load vals from config
@@ -54,6 +54,9 @@ def get_user_id(auth_uid: str, session) -> int:
     return user.user_id
 
 
+def create_new_auth_uid() -> str:
+    return str(uuid.uuid4())
+
 def custom_processor(logger, log_method, event_json_str: str) -> str:
     event_dict = json.loads(event_json_str)
 
@@ -90,3 +93,4 @@ def _convert_event_to_message(event_dict: dict) -> dict:
         event_dict['message'] = event_dict['event']
         del event_dict['event']
     return event_dict
+

@@ -119,3 +119,7 @@ class CellData(BaseModel):
     col: str 
     text: list
     text_ids: list
+
+class LoginRequest(BaseModel):
+    email: str
+

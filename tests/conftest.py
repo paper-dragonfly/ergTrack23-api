@@ -19,6 +19,16 @@ def client() -> TestClient:
 def headers() -> dict:
     return {"Authorization": tu.generate_token(AUTH_UID)}
 
+
 @pytest.fixture(scope="module")
 def auth_uid() -> str:
     return AUTH_UID
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup():
+    """
+    This fixture runs before every test module execution.
+    To run before every test function, change the scope to `function`.
+    """
+    tu.reset_postgres()
