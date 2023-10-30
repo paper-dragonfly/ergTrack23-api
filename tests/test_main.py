@@ -1,6 +1,6 @@
 from tests import utils as tu
 from unittest.mock import patch
-from src.schemas import PutUserSchema, PatchUserSchema, PostWorkoutSchema, PostTeamDataSchema, PostFeedbackSchema
+from src.schemas import PutUserSchema, PatchUserSchema, PostWorkoutSchema, PostTeamDataSchema, PostFeedbackSchema, LoginRequest
 
 USERNAME = "fake-username"
 EMAIL = "fake@email.com"
@@ -16,9 +16,9 @@ def test_get_root_succeeds(client):
 
 
 def test_read_login_succeeds(client, headers, auth_uid):
-    with patch("src.main.auth.verify_id_token", 
-               return_value={"uid": auth_uid, "name": USERNAME, "email": EMAIL}):
-        resp = client.get("/login/", headers=headers)
+    login_request = LoginRequest(email=EMAIL).dict()
+    with patch("src.main.create_new_auth_uid", return_value=auth_uid):
+        resp = client.post("/login/", headers=headers, json=login_request)
     
     assert resp.json()["status_code"] == 200
 

@@ -9,7 +9,7 @@ from datetime import datetime, date
 import os
 import threading
 import structlog
-
+import uuid
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,12 +29,14 @@ from src.schemas import (
     PostTeamDataSchema,
     PostFeedbackSchema,
     PostErgImageSchema,
+    LoginRequest
 )
 from src.utils import (
     create_encrypted_token,
     validate_user_token,
     get_user_id,
     InvalidTokenError,
+    create_new_auth_uid,
 )
 from src import utils as u
 from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
@@ -112,40 +114,50 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/login/")
-async def read_login(authorization: str = Header(...)):
+@app.post("/login/")
+async def read_login(request: LoginRequest, authorization: str = Header(...)):
     """
-    Receives id_token
+    Receives id_token and email
     Validate user with Firebase, add to ergTrack db if new, generate encrypted token
     Return encrypted token
     """
-    log.info("Started", endpoint="login", method="get")
-    id_token = authorization.split(" ")[1]
+    log.info("Started", endpoint="login", method="post")
     try:
         # hack fix added delay - TODO find better  solution
         # time.sleep(2.0)
         tinit = datetime.now()
-        decoded_token = auth.verify_id_token(id_token)
-        # token is valid
-        auth_uid = decoded_token["uid"]
+        email = request.email
+        team_id = None
+        if DEV_ENV == "prod":
+            id_token = authorization.split(" ")[1]
+            decoded_token = auth.verify_id_token(id_token)
+        else:
+            log.info("logging in without firebase authentication", email=email)
+
         # check if user in ergtrack db, if not add user
         with Session() as session:
             try:
                 existing_user = (
-                    session.query(UserTable).filter_by(auth_uid=auth_uid).one_or_none()
+                    session.query(UserTable).filter_by(email=email).one_or_none()
                 )
-                team_id = existing_user.team if existing_user else None
-                if not existing_user:
+                if existing_user:
+                    auth_uid = existing_user.auth_uid
+                    team_id = existing_user.team
+                else:
+                    if DEV_ENV == "prod":
+                        auth_uid = decoded_token["uid"]
+                        username = decoded_token.get("name")
+                    else:
+                        auth_uid = create_new_auth_uid()
+                        username = None
+                        
                     new_user = UserTable(
                         auth_uid=auth_uid,
-                        user_name=decoded_token["name"]
-                        if "name" in decoded_token.keys()
-                        else None,
-                        email=decoded_token["email"],
+                        user_name=username,
+                        email=email,
                     )
                     session.add(new_user)
                     session.commit()
-                    team_id = None
             except Exception as e:
                 log.error(
                     "cannot validate user or cannot add user to db",
@@ -160,9 +172,9 @@ async def read_login(authorization: str = Header(...)):
     except auth.InvalidIdTokenError as err:
         log.error("Token Invalid ", error_message=str(err))
         # Token invalid
-        return Response(status_code=400, error_message=f"Token invalin: {str(err)}")
-    except:
-        log.error("No token recieved or other issue")
+        return Response(status_code=400, error_message=f"Token invalid: {str(err)}")
+    except Exception as e:
+        log.error(str(e))
         return Response(
             status_code=400, error_message="no token recieved or other issue"
         )
