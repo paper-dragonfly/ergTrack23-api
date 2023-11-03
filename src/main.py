@@ -12,6 +12,8 @@ import structlog
 import uuid
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import credentials, auth
 import firebase_admin
@@ -23,7 +25,6 @@ from src.schemas import (
     PostWorkoutSchema,
     OcrDataReturn,
     WorkoutLogSchema,
-    Response,
     PutUserSchema,
     PatchUserSchema,
     PostTeamDataSchema,
@@ -163,20 +164,21 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
                     "cannot validate user or cannot add user to db",
                     error_message=str(e),
                 )
-                return Response(status_code=500, error_message=str(e))
+                return JSONResponse(status_code=500, content={"error_message":str(e)})
         encrypted_token = create_encrypted_token(auth_uid)
         tf = datetime.now()
         dur = tf - tinit
         log.info("Time to login", login_dur=dur)
-        return Response(body={"user_token": encrypted_token, "team_id": team_id})
+        json_encrypted_token = jsonable_encoder(encrypted_token)
+        return JSONResponse(content={"user_token": json_encrypted_token, "team_id": team_id})
     except auth.InvalidIdTokenError as err:
         log.error("Token Invalid ", error_message=str(err))
         # Token invalid
-        return Response(status_code=400, error_message=f"Token invalid: {str(err)}")
+        return JSONResponse(status_code=404, content={'error_message':f"Token invalid: {str(err)}"})
     except Exception as e:
         log.error(str(e))
-        return Response(
-            status_code=400, error_message="no token recieved or other issue"
+        return JSONResponse(
+            status_code=400, content={'error_message':"no token recieved or other issue"}
         )
 
 
@@ -197,13 +199,13 @@ async def read_user(authorization: str = Header(...)):
                 column.name: getattr(user, column.name)
                 for column in UserTable.__table__.columns
             }
-            return Response(body=user_info)
+            return JSONResponse(content=user_info)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("GET user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.put("/user")
@@ -225,13 +227,13 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
                 setattr(user, key, value)
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update successful"})
+            return JSONResponse(content={"message": "user update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("PUT user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/user")
@@ -259,13 +261,13 @@ async def patch_user(
                 setattr(user, key, filtered_new_user_info[key])
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update succeessful"})
+            return JSONResponse(content={"message": "user update succeessful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("PATCH user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/ergImage")
@@ -308,14 +310,14 @@ def create_extract_and_process_ergImage(
             tf = datetime.now()
             dtot = tf - tinit
             log.info("TOTAL TIME", total_dur=dtot)
-            return Response(body=vars(unmerged_ocr_data[0]))
+            return JSONResponse(content=vars(unmerged_ocr_data[0]))
         final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
         dtot = datetime.now() - tinit
         log.info("TOTAL TIME", total_dur=dtot)
-        return Response(body=vars(final_ocr_data))
+        return JSONResponse(content=vars(final_ocr_data))
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("/ergImage exception", error_message=str(e))
         raise e
@@ -331,13 +333,13 @@ async def read_workout(authorization: str = Header(...)):
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             workouts_processed = convert_class_instances_to_dicts(workouts)
-            return Response(body={"workouts": workouts_processed})
+            return JSONResponse(content={"workouts": workouts_processed})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("GET workout Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/workout")
@@ -383,13 +385,13 @@ async def create_workout(
             # use sqlAlchemy to add entry to db
             session.add(workout_entry)
             session.commit()
-            return Response(body={"message": "workout posted successfully"})
+            return JSONResponse(content={"message": "workout posted successfully"})
         except InvalidTokenError as e:
             log.error("Invalid Token Error", error_message=str(e))
-            return Response(status_code=404, error_message=str(e))
+            return JSONResponse(status_code=404, content={"error_message":str(e)})
         except Exception as e:
             log.error("POST workout Error", error_message=str(e))
-            return Response(status_code=500, error_message=str(e))
+            return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.delete("/workout/{workout_id}")
@@ -407,13 +409,13 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
             entry = session.query(WorkoutLogTable).get(workout_id)
             session.delete(entry)
             session.commit()
-            return Response(body={"message": "delete successful"})
+            return JSONResponse(content={"message": "delete successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("DELETE workout Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/team")
@@ -436,21 +438,21 @@ async def read_team(authorization: str = Header(...)):
                     for column in TeamTable.__table__.columns
                 }
                 admin = user_info["team_admin"]
-                return Response(
-                    body={
+                return JSONResponse(
+                    content={
                         "team_member": True,
                         "team_info": team_info,
                         "team_admin": admin,
                     }
                 )
             else:
-                return Response(body={"team_member": False})
+                return JSONResponse(content={"team_member": False})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("GET team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/team")
@@ -477,7 +479,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                     .first()[0]
                 )
                 if new_team_id:
-                    return Response(
+                    return JSONResponse(
                         status_code=403, error_message="Team already exists"
                     )
             except TypeError:
@@ -496,15 +498,15 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
             for key in user_patch:
                 setattr(user, key, user_patch[key])
             session.commit()
-            return Response(
-                body={"team_id": new_team_id, "team_name": teamData.teamName}
+            return JSONResponse(
+                content={"team_id": new_team_id, "team_name": teamData.teamName}
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("POST team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.put("/team/{team_id}")
@@ -522,7 +524,7 @@ async def update_team(
         updates team info
 
     Returns:
-        Confirmation (Response):
+        Confirmation (JSONResponse):
     """
     log.info("Started", endpoint="team", method="put")
     try:
@@ -535,13 +537,13 @@ async def update_team(
             # for key, value in vars(teamData).items():
             #     setattr(team, key, value)
             session.commit()
-            return Response(body={"message": "team update succeessful"})
+            return JSONResponse(content={"message": "team update succeessful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("PUT team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/jointeam")
@@ -569,7 +571,7 @@ async def write_join_team(
             )
             team_id = team_id_result[0] if team_id_result else None
             if not team_id:
-                return Response(
+                return JSONResponse(
                     status_code=404,
                     error_message="no team matching submitted credentials",
                 )
@@ -579,18 +581,18 @@ async def write_join_team(
             setattr(user, "team", team_id)
             # UserTable[user] = new_user_info.dict()
             session.commit()
-            return Response(
-                body={
+            return JSONResponse(
+                content={
                     "message": "user update successful - team joined",
                     "team_id": team_id,
                 }
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("PATCH jointeam Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/teamlog")
@@ -634,13 +636,13 @@ async def read_teamlog(authorization: str = Header(...)):
             team_workouts_complete = add_user_info_to_workout(
                 workouts_processed, team_members_as_dicts
             )
-            return Response(body={"team_workouts": team_workouts_complete})
+            return JSONResponse(content={"team_workouts": team_workouts_complete})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("GET teamlog Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/teamadmin")
@@ -669,8 +671,8 @@ async def read_team_info(authorization: str = Header(...)):
                 session.query(UserTable).filter(UserTable.team == team_id).all()
             )
             team_members = convert_class_instances_to_dicts(team_members_inst)
-            return Response(
-                body={
+            return JSONResponse(
+                content={
                     "team_info": team_info_dict,
                     "team_members": team_members,
                     "admin_uid": user_id,
@@ -678,10 +680,10 @@ async def read_team_info(authorization: str = Header(...)):
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("GET teamadmin Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/transferadmin/{new_admin_id}")
@@ -695,7 +697,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
     Action:
         switches value of admin for new_admin to true and old admin to falsee
     Returns:
-        Response : success message
+        JSONResponse : success message
     """
     log.info("Started", endpoint="transferadmin", method="patch")
     try:
@@ -708,13 +710,13 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
             setattr(old_admin, "team_admin", False)
             setattr(new_admin, "team_admin", True)
             session.commit()
-            return Response(body={"message": "Update successful"})
+            return JSONResponse(content={"message": "Update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("PATCH transferadmin Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 # OTHER
@@ -744,13 +746,13 @@ async def create_feedback(
                 user=user_id,
             )
             new_feedback_id = entry.feedback_id
-            return Response(body={new_feedback_id: new_feedback_id})
+            return JSONResponse(content={new_feedback_id: new_feedback_id})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
         log.error("POST feedback Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/sandbox")
@@ -762,4 +764,4 @@ async def create_sandbox(
     byte_array = bytearray(image.file.read())
     pil_image = Image.open(BytesIO(byte_array))
     pil_image.show()
-    return Response(body={"message": "success", "formdata": form_data})
+    return JSONResponse(content={"message": "success", "formdata": form_data})
