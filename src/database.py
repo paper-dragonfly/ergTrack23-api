@@ -10,6 +10,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.sql import func
 
 
 Base = declarative_base()
@@ -32,7 +33,7 @@ class UserTable(Base):
     weight_class = Column(String)
     para_class = Column(String)
     country = Column(String)
-    joined = Column(Date, server_default="now()")
+    joined = Column(Date, server_default=func.now())
     team = Column(Integer, ForeignKey("team.team_id"))
     team_admin = Column(Boolean)
 
