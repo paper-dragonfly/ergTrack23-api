@@ -145,13 +145,14 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
                 if existing_user:
                     auth_uid = existing_user.auth_uid
                     team_id = existing_user.team
+                # create new user
                 else:
                     if DEV_ENV == "prod":
                         auth_uid = decoded_token["uid"]
-                        username = decoded_token.get("name")
+                        username = decoded_token.get("name") if decoded_token.get("name") else email.split('@')[0]
                     else:
                         auth_uid = create_new_auth_uid()
-                        username = None
+                        username = email.split('@')[0]
                         
                     new_user = UserTable(
                         auth_uid=auth_uid,
