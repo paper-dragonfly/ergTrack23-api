@@ -8,7 +8,7 @@ from hashlib import sha256
 from PIL import Image
 from io import BytesIO
 from fastapi import File, UploadFile, Form, Header
-from datetime import datetime
+from datetime import datetime, date as dt_date
 import structlog
 
 from src.schemas import OcrDataReturn, WorkoutDataReturn
@@ -104,6 +104,12 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int) -> OcrDataR
     wo_data.hr.extend(unmerged_data[-1].workout_data.hr[last_subs_idx:])
     return merged_data
 
+# Custom encoder function
+def datetime_encoder(unserializable_val):
+    if isinstance(unserializable_val, datetime):
+        return unserializable_val.isoformat()
+    raise TypeError(f'Object of type {unserializable_val.__class__.__name__} is not JSON serializable')
+
 
 def convert_class_instances_to_dicts(sqlAlchemy_insts: list) -> List[dict]:
     """Reformat response retrieved by sqlAlchemy query from list of class instances to list of dicts"""
@@ -111,6 +117,10 @@ def convert_class_instances_to_dicts(sqlAlchemy_insts: list) -> List[dict]:
     converted_list = []
     for inst in sqlAlchemy_insts:
         inst_as_dict = {k: v for k, v in inst.__dict__.items() if not k.startswith("_")}
+        # convert dates to strings so they can be sent as json
+        for k, v in inst_as_dict.items():
+            if isinstance(v, datetime) or isinstance(v, dt_date):
+                inst_as_dict[k] = v.isoformat()
         converted_list.append(inst_as_dict)
     return converted_list
 

@@ -50,6 +50,7 @@ from src.helper import (
     calculate_split_var,
     add_user_info_to_workout,
     merge_ocr_data,
+    datetime_encoder
 )
 
 app = FastAPI()
@@ -199,7 +200,8 @@ async def read_user(authorization: str = Header(...)):
                 column.name: getattr(user, column.name)
                 for column in UserTable.__table__.columns
             }
-            return JSONResponse(content=user_info)
+            json_user_info = jsonable_encoder(user_info)
+            return JSONResponse(content=json_user_info)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
@@ -310,11 +312,13 @@ def create_extract_and_process_ergImage(
             tf = datetime.now()
             dtot = tf - tinit
             log.info("TOTAL TIME", total_dur=dtot)
-            return JSONResponse(content=vars(unmerged_ocr_data[0]))
+            json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
+            return JSONResponse(content=json_compatable_ocr_data)
         final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
         dtot = datetime.now() - tinit
         log.info("TOTAL TIME", total_dur=dtot)
-        return JSONResponse(content=vars(final_ocr_data))
+        json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
+        return JSONResponse(content=json_compatable_ocr_data)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
