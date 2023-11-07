@@ -8,7 +8,7 @@ from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
 import uuid
-from src.database import UserTable, WorkoutLogTable
+from src.database import AthleteTable, WorkoutLogTable
 
 # Load vals from config
 with open("config/config.yaml", "r") as f:
@@ -50,7 +50,7 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
 
 
 def get_user_id(auth_uid: str, session) -> int:
-    user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
+    user = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
     return user.user_id
 
 

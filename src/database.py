@@ -16,8 +16,8 @@ from sqlalchemy.sql import func
 Base = declarative_base()
 
 
-class UserTable(Base):
-    __tablename__ = "user"
+class AthleteTable(Base):
+    __tablename__ = "athlete"
 
     user_id = Column(
         Integer,
@@ -39,7 +39,7 @@ class UserTable(Base):
 
     def __repr__(self):
         return (
-            "<UserTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
+            "<AthleteTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
             % (
                 self.user_id,
                 self.auth_uid,
@@ -66,7 +66,7 @@ class WorkoutLogTable(Base):
         primary_key=True,
         server_default="nextval('workout_log_workout_id_seq')",
     )
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_id = Column(Integer, ForeignKey("athlete.user_id"))
     description = Column(String)
     date = Column(Date)
     time = Column(String)
@@ -109,7 +109,7 @@ class FeedbackTable(Base):
         primary_key=True,
     )
     date = Column(Date)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_id = Column(Integer, ForeignKey("athlete.user_id"))
     feedback_type = Column(String) 
     comment = Column(String)
     

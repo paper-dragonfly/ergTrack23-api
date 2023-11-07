@@ -40,7 +40,7 @@ from src.utils import (
     create_new_auth_uid,
 )
 from src import utils as u
-from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
+from src.database import AthleteTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts,
     upload_blob,
@@ -140,7 +140,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
         with Session() as session:
             try:
                 existing_user = (
-                    session.query(UserTable).filter_by(email=email).one_or_none()
+                    session.query(AthleteTable).filter_by(email=email).one_or_none()
                 )
                 if existing_user:
                     auth_uid = existing_user.auth_uid
@@ -154,7 +154,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
                         auth_uid = create_new_auth_uid()
                         username = email.split('@')[0]
                         
-                    new_user = UserTable(
+                    new_user = AthleteTable(
                         auth_uid=auth_uid,
                         user_name=username,
                         email=email,
@@ -188,7 +188,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
 async def read_user(authorization: str = Header(...)):
     """
     Recieves user_id
-    Returns all data from UserTable for that user
+    Returns all data from AthleteTable for that user
     """
     log.info("Started", endpoint="user", method="get")
     try:
@@ -196,10 +196,10 @@ async def read_user(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             user_info = {
                 column.name: getattr(user, column.name)
-                for column in UserTable.__table__.columns
+                for column in AthleteTable.__table__.columns
             }
             json_user_info = jsonable_encoder(user_info)
             return JSONResponse(content=json_user_info)
@@ -224,11 +224,11 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with new info
             for key, value in new_user_info:
                 setattr(user, key, value)
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
             return JSONResponse(content={"message": "user update successful"})
     except InvalidTokenError as e:
@@ -258,11 +258,11 @@ async def patch_user(
         with Session() as session:
             # should I add security layere that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = userId if userId else get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with new info
             for key in filtered_new_user_info:
                 setattr(user, key, filtered_new_user_info[key])
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
             return JSONResponse(content={"message": "user update succeessful"})
     except InvalidTokenError as e:
@@ -435,7 +435,7 @@ async def read_team(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user_info = session.query(UserTable).get(user_id).__dict__
+            user_info = session.query(AthleteTable).get(user_id).__dict__
             if user_info["team"]:
                 team = session.query(TeamTable).get(user_info["team"])
                 team_info = {
@@ -498,7 +498,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 new_team_id = team_entry.team_id
             # update user's info
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             user_patch = {"team": new_team_id, "team_admin": True}
             for key in user_patch:
                 setattr(user, key, user_patch[key])
@@ -581,10 +581,10 @@ async def write_join_team(
                     error_message="no team matching submitted credentials",
                 )
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with team id
             setattr(user, "team", team_id)
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
             return JSONResponse(
                 content={
@@ -617,10 +617,10 @@ async def read_teamlog(authorization: str = Header(...)):
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             team_id = (
-                session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+                session.query(AthleteTable.team).filter_by(user_id=user_id).first()[0]
             )
             team_members = (
-                session.query(UserTable).filter(UserTable.team == team_id).all()
+                session.query(AthleteTable).filter(AthleteTable.team == team_id).all()
             )
             # get workouts for team members where post_to_team == True
             team_workouts = (
@@ -664,7 +664,7 @@ async def read_team_info(authorization: str = Header(...)):
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             team_id = (
-                session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+                session.query(AthleteTable.team).filter_by(user_id=user_id).first()[0]
             )
             team_info_inst = session.query(TeamTable).filter_by(team_id=team_id).first()
             team_info_dict = {
@@ -673,7 +673,7 @@ async def read_team_info(authorization: str = Header(...)):
                 if not k.startswith("_")
             }
             team_members_inst = (
-                session.query(UserTable).filter(UserTable.team == team_id).all()
+                session.query(AthleteTable).filter(AthleteTable.team == team_id).all()
             )
             team_members = convert_class_instances_to_dicts(team_members_inst)
             return JSONResponse(
@@ -710,8 +710,8 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
         with Session() as session:
             # should I add security layer that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = get_user_id(auth_uid, session)
-            old_admin = session.query(UserTable).get(user_id)
-            new_admin = session.query(UserTable).get(new_admin_id)
+            old_admin = session.query(AthleteTable).get(user_id)
+            new_admin = session.query(AthleteTable).get(new_admin_id)
             setattr(old_admin, "team_admin", False)
             setattr(new_admin, "team_admin", True)
             session.commit()
