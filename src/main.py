@@ -227,6 +227,9 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
             user = session.query(AthleteTable).get(user_id)
             # update user with new info
             for key, value in new_user_info:
+                #avoid bug -> '' != datetime value
+                if key == 'dob' and not value:
+                    value = None
                 setattr(user, key, value)
             # AthleteTable[user] = new_user_info.dict()
             session.commit()
