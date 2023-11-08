@@ -28,7 +28,6 @@ def reset_postgres():
     metadata.reflect(bind=session.bind)
 
     try:
-        pdb.set_trace()
         for table in reversed(metadata.sorted_tables):
                 if table.name == 'alembic_version':
                      continue
