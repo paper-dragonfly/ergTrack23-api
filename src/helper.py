@@ -2,7 +2,6 @@ import pdb
 from typing import Union, List, Tuple, Dict
 import json
 import math
-from src.schemas import WorkoutLogSchema
 from google.cloud import storage
 from hashlib import sha256
 from PIL import Image
@@ -12,13 +11,14 @@ from datetime import datetime, date as dt_date
 import structlog
 
 from src.schemas import OcrDataReturn, WorkoutDataReturn
+from src.database import AthleteTable
 from src.ocr import hit_textract_api, process_raw_ocr
 
 log = structlog.get_logger()
 
 
 def get_processed_ocr_data(
-    erg_photo_filename: str, image_bytes: bytes
+    image_bytes: bytes, photo_hash:str
 ) -> OcrDataReturn:
     """
     Receives: erg image filename & bytes
@@ -26,9 +26,6 @@ def get_processed_ocr_data(
     Returns: processed workout data
     """
     t1 = datetime.now()
-    # convert bytes to byte array & create photo_hash
-    byte_array = bytearray(image_bytes)
-    photo_hash = sha256(byte_array).hexdigest()
     # Check if image is already in raw_ocr library
     with open("src/rawocr.json", "r") as f:
         raw_ocr_library = json.load(f)
@@ -46,6 +43,7 @@ def get_processed_ocr_data(
         # open image (dev only) + send to AWS Textract for OCR extraction
         # pil_image = Image.open(BytesIO(byte_array))
         # pil_image.show()
+        byte_array = bytearray(image_bytes)
         raw_textract_resp = hit_textract_api(byte_array)
         t2 = datetime.now()
         d1 = t2 - t1
@@ -60,6 +58,14 @@ def get_processed_ocr_data(
     log.info("Time to process raw data", process_dur=d2)
     return processed_data
 
+def create_photo_hash(image_bytes, auth_uid, session)-> str:
+    #get user name
+    user = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
+    user_name = user.email.split('@')[0]
+    # convert bytes to byte array & create photo_hash
+    byte_array = bytearray(image_bytes)
+    photo_hash = user_name+'_'+sha256(byte_array).hexdigest()
+    return photo_hash
 
 def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     """Uploads erg_image to google cloud bucket if not already stored"""

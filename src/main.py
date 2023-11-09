@@ -30,7 +30,8 @@ from src.schemas import (
     PostTeamDataSchema,
     PostFeedbackSchema,
     PostErgImageSchema,
-    LoginRequest
+    LoginRequest,
+    CustomError
 )
 from src.utils import (
     create_encrypted_token,
@@ -50,7 +51,8 @@ from src.helper import (
     calculate_split_var,
     add_user_info_to_workout,
     merge_ocr_data,
-    datetime_encoder
+    datetime_encoder,
+    create_photo_hash
 )
 
 app = FastAPI()
@@ -64,6 +66,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Use FastAPI's exception handling middleware to catch CustomError
+@app.exception_handler(CustomError)
+async def custom_error_handler(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={"error_message": exc.message})
 
 # Load config file values
 with open("config/config.yaml", "r") as f:
@@ -163,7 +170,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
                     session.commit()
             except Exception as e:
                 log.error(
-                    "cannot validate user or cannot add user to db",
+                    f"cannot validate user or cannot add user to db: {email}",
                     error_message=str(e),
                 )
                 return JSONResponse(status_code=500, content={"error_message":str(e)})
@@ -178,7 +185,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
         # Token invalid
         return JSONResponse(status_code=404, content={'error_message':f"Token invalid: {str(err)}"})
     except Exception as e:
-        log.error(str(e))
+        log.error(f'user: {email}', str(e))
         return JSONResponse(
             status_code=400, content={'error_message':"no token recieved or other issue"}
         )
@@ -207,7 +214,7 @@ async def read_user(authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET user Error", error_message=str(e))
+        log.error(f"GET user Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -238,7 +245,7 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PUT user Error", error_message=str(e))
+        log.error(f"PUT user Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -272,7 +279,7 @@ async def patch_user(
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH user Error", error_message=str(e))
+        log.error(f"PATCH user Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -292,42 +299,55 @@ def create_extract_and_process_ergImage(
     log.info("Started", endpoint="ergImage", method="post")
     try:
         auth_uid = validate_user_token(authorization)
-        tinit = datetime.now()
-        # print("running ergImage", tinit)
-        unmerged_ocr_data = []
-        ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
-        for img in ergImgs:
-            image_bytes = img.file.read()
-            filename = img.filename
-            ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
-            t4 = datetime.now()
-            upload_blob_thread = threading.Thread(
-                target=upload_blob,
-                args=("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0]),
-                name=f"UploadBlobThread_{filename}",
-            )
-            # upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0])
-            upload_blob_thread.start()
-            t5 = datetime.now()
-            d3 = t5 - t4
-            log.info("Time to add blob. Skipped with threading? :", blob_store_dur=d3)
-            unmerged_ocr_data.append(ocr_data)
-        if len(unmerged_ocr_data) == 1:
-            tf = datetime.now()
-            dtot = tf - tinit
+        with Session() as session: 
+            tinit = datetime.now()
+            user_id = get_user_id(auth_uid, session)
+            unmerged_ocr_data = []
+            ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
+            for img in ergImgs:
+                filename = img.filename
+                image_bytes = img.file.read()
+                photo_hash = create_photo_hash(image_bytes, auth_uid, session)
+                # Send photo to Textract (or get raw_blob from library) 
+                # Process raw data to get processed workout and metadata 
+                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash)
+                pdb.set_trace()
+                t4 = datetime.now()
+                upload_blob_thread = threading.Thread(
+                    target=upload_blob,
+                    args=("erg_memory_screen_photos", image_bytes, photo_hash),
+                    name=f"UploadBlobThread_{filename}",
+                )
+                upload_blob_thread.start()
+                t5 = datetime.now()
+                d3 = t5 - t4
+                log.info("Time to add blob. Skipped with threading? :", blob_store_dur=d3)
+                unmerged_ocr_data.append(ocr_data)
+            if len(unmerged_ocr_data) == 1:
+                tf = datetime.now()
+                dtot = tf - tinit
+                log.info("TOTAL TIME", total_dur=dtot)
+                json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
+                return JSONResponse(content=json_compatable_ocr_data)
+            final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
+            dtot = datetime.now() - tinit
             log.info("TOTAL TIME", total_dur=dtot)
-            json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
+            json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
             return JSONResponse(content=json_compatable_ocr_data)
-        final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
-        dtot = datetime.now() - tinit
-        log.info("TOTAL TIME", total_dur=dtot)
-        json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
-        return JSONResponse(content=json_compatable_ocr_data)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("/ergImage exception", error_message=str(e))
+        # save image to unprocessable_erg_screens bucket
+        upload_blob_thread = threading.Thread(
+            target=upload_blob,
+            args=("unprocessable_erg_screens", image_bytes, photo_hash),
+            name=f"UploadBlobThread_{filename}",
+        )
+        upload_blob_thread.start()
+
+        log.error(f"/ergImage exception, uid={user_id}", error_message=str(e))
+        # pdb.set_trace() 
         raise e
 
 
@@ -346,7 +366,7 @@ async def read_workout(authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET workout Error", error_message=str(e))
+        log.error(f"GET workout Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -398,7 +418,7 @@ async def create_workout(
             log.error("Invalid Token Error", error_message=str(e))
             return JSONResponse(status_code=404, content={"error_message":str(e)})
         except Exception as e:
-            log.error("POST workout Error", error_message=str(e))
+            log.error(f"POST workout Error, uid={user_id}", error_message=str(e))
             return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -414,7 +434,10 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            user_id = get_user_id(auth_uid, session)
             entry = session.query(WorkoutLogTable).get(workout_id)
+            if entry.user_id != user_id:
+                return JSONResponse(status_code=401, content={"error_message":"cannot delete other people's workouts"})
             session.delete(entry)
             session.commit()
             return JSONResponse(content={"message": "delete successful"})
@@ -422,7 +445,7 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("DELETE workout Error", error_message=str(e))
+        log.error(f"DELETE workout Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -459,7 +482,7 @@ async def read_team(authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET team Error", error_message=str(e))
+        log.error(f"GET team Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -513,7 +536,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("POST team Error", error_message=str(e))
+        log.error(f"POST team Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -538,6 +561,7 @@ async def update_team(
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            user_id = get_user_id(auth_uid, session)
             team = session.query(TeamTable).get(team_id)
             # update user with new info
             team.team_name = teamData.teamName
@@ -550,7 +574,7 @@ async def update_team(
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PUT team Error", error_message=str(e))
+        log.error(f"PUT team Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -599,7 +623,7 @@ async def write_join_team(
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH jointeam Error", error_message=str(e))
+        log.error(f"PATCH jointeam Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -649,7 +673,7 @@ async def read_teamlog(authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET teamlog Error", error_message=str(e))
+        log.error(f"GET teamlog Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -690,7 +714,7 @@ async def read_team_info(authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET teamadmin Error", error_message=str(e))
+        log.error(f"GET teamadmin Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -723,7 +747,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH transferadmin Error", error_message=str(e))
+        log.error(f"PATCH transferadmin Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
@@ -759,7 +783,7 @@ async def create_feedback(
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("POST feedback Error", error_message=str(e))
+        log.error(f"POST feedback Error, uid={user_id}", error_message=str(e))
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 

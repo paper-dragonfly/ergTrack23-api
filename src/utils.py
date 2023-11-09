@@ -54,6 +54,7 @@ def get_user_id(auth_uid: str, session) -> int:
     return user.user_id
 
 
+# Created by Nico
 def create_new_auth_uid() -> str:
     return str(uuid.uuid4())
 
@@ -63,8 +64,7 @@ def custom_processor(logger, log_method, event_json_str: str) -> str:
     event_dict = _add_author_key(event_dict)    
     event_dict = _convert_level_to_severity(event_dict)
     event_dict = _convert_event_to_message(event_dict)
-    return json.dumps(event_dict)
-
+    return json.dumps(event_dict)    
 
 def _add_author_key(event_dict: dict) -> dict:
     event_dict['author'] = 'api-code'
@@ -93,4 +93,3 @@ def _convert_event_to_message(event_dict: dict) -> dict:
         event_dict['message'] = event_dict['event']
         del event_dict['event']
     return event_dict
-
