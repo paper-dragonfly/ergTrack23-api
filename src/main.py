@@ -305,6 +305,7 @@ def create_extract_and_process_ergImage(
             session.commit() 
         with Session() as session: 
             tinit = datetime.now()
+            user_id = get_user_id(auth_uid, session)
             unmerged_ocr_data = []
             ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
             for img in ergImgs:
