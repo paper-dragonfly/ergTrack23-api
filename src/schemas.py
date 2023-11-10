@@ -111,8 +111,6 @@ class WorkoutLogSchema(BaseModel):
     post_to_team: Optional[bool]  
 
 
-class CustomError(Exception):
-    pass
 
 class CellData(BaseModel):
     row: str
@@ -123,3 +121,8 @@ class CellData(BaseModel):
 class LoginRequest(BaseModel):
     email: str
 
+# Exception
+class CustomError(Exception):
+    def __init__(self, status_code, message):
+        self.status_code = status_code
+        self.message = message

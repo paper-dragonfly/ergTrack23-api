@@ -12,6 +12,8 @@ import structlog
 import uuid
 
 from fastapi import FastAPI, Request, File, UploadFile, Form, Header
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import credentials, auth
 import firebase_admin
@@ -23,13 +25,13 @@ from src.schemas import (
     PostWorkoutSchema,
     OcrDataReturn,
     WorkoutLogSchema,
-    Response,
     PutUserSchema,
     PatchUserSchema,
     PostTeamDataSchema,
     PostFeedbackSchema,
     PostErgImageSchema,
-    LoginRequest
+    LoginRequest,
+    CustomError
 )
 from src.utils import (
     create_encrypted_token,
@@ -39,7 +41,7 @@ from src.utils import (
     create_new_auth_uid,
 )
 from src import utils as u
-from src.database import UserTable, WorkoutLogTable, TeamTable, FeedbackTable
+from src.database import AthleteTable, WorkoutLogTable, TeamTable, FeedbackTable
 from src.helper import (
     convert_class_instances_to_dicts,
     upload_blob,
@@ -49,6 +51,8 @@ from src.helper import (
     calculate_split_var,
     add_user_info_to_workout,
     merge_ocr_data,
+    datetime_encoder,
+    create_photo_hash
 )
 
 app = FastAPI()
@@ -62,6 +66,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Use FastAPI's exception handling middleware to catch CustomError
+@app.exception_handler(CustomError)
+async def custom_error_handler(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={"error_message": exc.message})
 
 # Load config file values
 with open("config/config.yaml", "r") as f:
@@ -138,20 +147,21 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
         with Session() as session:
             try:
                 existing_user = (
-                    session.query(UserTable).filter_by(email=email).one_or_none()
+                    session.query(AthleteTable).filter_by(email=email).one_or_none()
                 )
                 if existing_user:
                     auth_uid = existing_user.auth_uid
                     team_id = existing_user.team
+                # create new user
                 else:
                     if DEV_ENV == "prod":
                         auth_uid = decoded_token["uid"]
-                        username = decoded_token.get("name")
+                        username = decoded_token.get("name") if decoded_token.get("name") else email.split('@')[0]
                     else:
                         auth_uid = create_new_auth_uid()
-                        username = None
+                        username = email.split('@')[0]
                         
-                    new_user = UserTable(
+                    new_user = AthleteTable(
                         auth_uid=auth_uid,
                         user_name=username,
                         email=email,
@@ -160,23 +170,24 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
                     session.commit()
             except Exception as e:
                 log.error(
-                    "cannot validate user or cannot add user to db",
+                    f"cannot validate user or cannot add user to db: {email}",
                     error_message=str(e),
                 )
-                return Response(status_code=500, error_message=str(e))
+                return JSONResponse(status_code=500, content={"error_message":str(e)})
         encrypted_token = create_encrypted_token(auth_uid)
         tf = datetime.now()
         dur = tf - tinit
         log.info("Time to login", login_dur=dur)
-        return Response(body={"user_token": encrypted_token, "team_id": team_id})
+        json_encrypted_token = jsonable_encoder(encrypted_token)
+        return JSONResponse(content={"user_token": json_encrypted_token, "team_id": team_id})
     except auth.InvalidIdTokenError as err:
         log.error("Token Invalid ", error_message=str(err))
         # Token invalid
-        return Response(status_code=400, error_message=f"Token invalid: {str(err)}")
+        return JSONResponse(status_code=404, content={'error_message':f"Token invalid: {str(err)}"})
     except Exception as e:
-        log.error(str(e))
-        return Response(
-            status_code=400, error_message="no token recieved or other issue"
+        log.error(f'user: {email}', str(e))
+        return JSONResponse(
+            status_code=400, content={'error_message':"no token recieved or other issue"}
         )
 
 
@@ -184,7 +195,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
 async def read_user(authorization: str = Header(...)):
     """
     Recieves user_id
-    Returns all data from UserTable for that user
+    Returns all data from AthleteTable for that user
     """
     log.info("Started", endpoint="user", method="get")
     try:
@@ -192,18 +203,19 @@ async def read_user(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             user_info = {
                 column.name: getattr(user, column.name)
-                for column in UserTable.__table__.columns
+                for column in AthleteTable.__table__.columns
             }
-            return Response(body=user_info)
+            json_user_info = jsonable_encoder(user_info)
+            return JSONResponse(content=json_user_info)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"GET user Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.put("/user")
@@ -219,19 +231,22 @@ async def update_user(new_user_info: PutUserSchema, authorization: str = Header(
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with new info
             for key, value in new_user_info:
+                #avoid bug -> '' != datetime value
+                if key == 'dob' and not value:
+                    value = None
                 setattr(user, key, value)
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update successful"})
+            return JSONResponse(content={"message": "user update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PUT user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"PUT user Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/user")
@@ -253,19 +268,19 @@ async def patch_user(
         with Session() as session:
             # should I add security layere that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = userId if userId else get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with new info
             for key in filtered_new_user_info:
                 setattr(user, key, filtered_new_user_info[key])
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
-            return Response(body={"message": "user update succeessful"})
+            return JSONResponse(content={"message": "user update succeessful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH user Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"PATCH user Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/ergImage")
@@ -284,40 +299,54 @@ def create_extract_and_process_ergImage(
     log.info("Started", endpoint="ergImage", method="post")
     try:
         auth_uid = validate_user_token(authorization)
-        tinit = datetime.now()
-        # print("running ergImage", tinit)
-        unmerged_ocr_data = []
-        ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
-        for img in ergImgs:
-            image_bytes = img.file.read()
-            filename = img.filename
-            ocr_data: OcrDataReturn = get_processed_ocr_data(filename, image_bytes)
-            t4 = datetime.now()
-            upload_blob_thread = threading.Thread(
-                target=upload_blob,
-                args=("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0]),
-                name=f"UploadBlobThread_{filename}",
-            )
-            # upload_blob("erg_memory_screen_photos", image_bytes, ocr_data.photo_hash[0])
-            upload_blob_thread.start()
-            t5 = datetime.now()
-            d3 = t5 - t4
-            log.info("Time to add blob. Skipped with threading? :", blob_store_dur=d3)
-            unmerged_ocr_data.append(ocr_data)
-        if len(unmerged_ocr_data) == 1:
-            tf = datetime.now()
-            dtot = tf - tinit
+        with Session() as session:
+            athlete = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
+            athlete.last_post = date.today().strftime('%Y-%m-%d')
+            session.commit() 
+        with Session() as session: 
+            tinit = datetime.now()
+            user_id = get_user_id(auth_uid, session)
+            unmerged_ocr_data = []
+            ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
+            for img in ergImgs:
+                filename = img.filename
+                image_bytes = img.file.read()
+                photo_hash = create_photo_hash(image_bytes, auth_uid, session)
+                # 1. Send photo to Textract (or get raw_blob from library) 
+                # 2. Process raw data to get processed workout and metadata 
+                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash)
+                upload_blob_thread = threading.Thread(
+                    target=upload_blob,
+                    args=("erg_memory_screen_photos", image_bytes, photo_hash),
+                    name=f"UploadBlobThread_{filename}",
+                )
+                upload_blob_thread.start()
+                unmerged_ocr_data.append(ocr_data)
+            if len(unmerged_ocr_data) == 1:
+                tf = datetime.now()
+                dtot = tf - tinit
+                log.info("TOTAL TIME", total_dur=dtot)
+                json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
+                return JSONResponse(content=json_compatable_ocr_data)
+            final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
+            dtot = datetime.now() - tinit
             log.info("TOTAL TIME", total_dur=dtot)
-            return Response(body=vars(unmerged_ocr_data[0]))
-        final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
-        dtot = datetime.now() - tinit
-        log.info("TOTAL TIME", total_dur=dtot)
-        return Response(body=vars(final_ocr_data))
+            json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
+            return JSONResponse(content=json_compatable_ocr_data)
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("/ergImage exception", error_message=str(e))
+        # save image to unprocessable_erg_screens bucket
+        upload_blob_thread = threading.Thread(
+            target=upload_blob,
+            args=("unprocessable_erg_screens", image_bytes, photo_hash),
+            name=f"UploadBlobThread_{filename}",
+        )
+        upload_blob_thread.start()
+
+        log.error(f"/ergImage exception, uid={user_id}", error_message=str(e))
+        # pdb.set_trace() 
         raise e
 
 
@@ -331,13 +360,13 @@ async def read_workout(authorization: str = Header(...)):
             user_id = get_user_id(auth_uid, session)
             workouts = session.query(WorkoutLogTable).filter_by(user_id=user_id).all()
             workouts_processed = convert_class_instances_to_dicts(workouts)
-            return Response(body={"workouts": workouts_processed})
+            return JSONResponse(content={"workouts": workouts_processed})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET workout Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"GET workout Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/workout")
@@ -383,13 +412,13 @@ async def create_workout(
             # use sqlAlchemy to add entry to db
             session.add(workout_entry)
             session.commit()
-            return Response(body={"message": "workout posted successfully"})
+            return JSONResponse(content={"message": "workout posted successfully"})
         except InvalidTokenError as e:
             log.error("Invalid Token Error", error_message=str(e))
-            return Response(status_code=404, error_message=str(e))
+            return JSONResponse(status_code=404, content={"error_message":str(e)})
         except Exception as e:
-            log.error("POST workout Error", error_message=str(e))
-            return Response(status_code=500, error_message=str(e))
+            log.error(f"POST workout Error, uid={user_id}", error_message=str(e))
+            return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.delete("/workout/{workout_id}")
@@ -404,16 +433,19 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            user_id = get_user_id(auth_uid, session)
             entry = session.query(WorkoutLogTable).get(workout_id)
+            if entry.user_id != user_id:
+                return JSONResponse(status_code=401, content={"error_message":"cannot delete other people's workouts"})
             session.delete(entry)
             session.commit()
-            return Response(body={"message": "delete successful"})
+            return JSONResponse(content={"message": "delete successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("DELETE workout Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"DELETE workout Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/team")
@@ -428,7 +460,7 @@ async def read_team(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user_info = session.query(UserTable).get(user_id).__dict__
+            user_info = session.query(AthleteTable).get(user_id).__dict__
             if user_info["team"]:
                 team = session.query(TeamTable).get(user_info["team"])
                 team_info = {
@@ -436,21 +468,21 @@ async def read_team(authorization: str = Header(...)):
                     for column in TeamTable.__table__.columns
                 }
                 admin = user_info["team_admin"]
-                return Response(
-                    body={
+                return JSONResponse(
+                    content={
                         "team_member": True,
                         "team_info": team_info,
                         "team_admin": admin,
                     }
                 )
             else:
-                return Response(body={"team_member": False})
+                return JSONResponse(content={"team_member": False})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"GET team Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/team")
@@ -477,7 +509,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                     .first()[0]
                 )
                 if new_team_id:
-                    return Response(
+                    return JSONResponse(
                         status_code=403, error_message="Team already exists"
                     )
             except TypeError:
@@ -491,20 +523,20 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
                 new_team_id = team_entry.team_id
             # update user's info
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             user_patch = {"team": new_team_id, "team_admin": True}
             for key in user_patch:
                 setattr(user, key, user_patch[key])
             session.commit()
-            return Response(
-                body={"team_id": new_team_id, "team_name": teamData.teamName}
+            return JSONResponse(
+                content={"team_id": new_team_id, "team_name": teamData.teamName}
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("POST team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"POST team Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.put("/team/{team_id}")
@@ -522,12 +554,13 @@ async def update_team(
         updates team info
 
     Returns:
-        Confirmation (Response):
+        Confirmation (JSONResponse):
     """
     log.info("Started", endpoint="team", method="put")
     try:
         auth_uid = validate_user_token(authorization)
         with Session() as session:
+            user_id = get_user_id(auth_uid, session)
             team = session.query(TeamTable).get(team_id)
             # update user with new info
             team.team_name = teamData.teamName
@@ -535,13 +568,13 @@ async def update_team(
             # for key, value in vars(teamData).items():
             #     setattr(team, key, value)
             session.commit()
-            return Response(body={"message": "team update succeessful"})
+            return JSONResponse(content={"message": "team update succeessful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PUT team Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"PUT team Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/jointeam")
@@ -569,28 +602,28 @@ async def write_join_team(
             )
             team_id = team_id_result[0] if team_id_result else None
             if not team_id:
-                return Response(
+                return JSONResponse(
                     status_code=404,
                     error_message="no team matching submitted credentials",
                 )
             user_id = get_user_id(auth_uid, session)
-            user = session.query(UserTable).get(user_id)
+            user = session.query(AthleteTable).get(user_id)
             # update user with team id
             setattr(user, "team", team_id)
-            # UserTable[user] = new_user_info.dict()
+            # AthleteTable[user] = new_user_info.dict()
             session.commit()
-            return Response(
-                body={
+            return JSONResponse(
+                content={
                     "message": "user update successful - team joined",
                     "team_id": team_id,
                 }
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH jointeam Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"PATCH jointeam Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/teamlog")
@@ -610,10 +643,10 @@ async def read_teamlog(authorization: str = Header(...)):
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             team_id = (
-                session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+                session.query(AthleteTable.team).filter_by(user_id=user_id).first()[0]
             )
             team_members = (
-                session.query(UserTable).filter(UserTable.team == team_id).all()
+                session.query(AthleteTable).filter(AthleteTable.team == team_id).all()
             )
             # get workouts for team members where post_to_team == True
             team_workouts = (
@@ -634,13 +667,13 @@ async def read_teamlog(authorization: str = Header(...)):
             team_workouts_complete = add_user_info_to_workout(
                 workouts_processed, team_members_as_dicts
             )
-            return Response(body={"team_workouts": team_workouts_complete})
+            return JSONResponse(content={"team_workouts": team_workouts_complete})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET teamlog Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"GET teamlog Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.get("/teamadmin")
@@ -657,7 +690,7 @@ async def read_team_info(authorization: str = Header(...)):
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
             team_id = (
-                session.query(UserTable.team).filter_by(user_id=user_id).first()[0]
+                session.query(AthleteTable.team).filter_by(user_id=user_id).first()[0]
             )
             team_info_inst = session.query(TeamTable).filter_by(team_id=team_id).first()
             team_info_dict = {
@@ -666,11 +699,11 @@ async def read_team_info(authorization: str = Header(...)):
                 if not k.startswith("_")
             }
             team_members_inst = (
-                session.query(UserTable).filter(UserTable.team == team_id).all()
+                session.query(AthleteTable).filter(AthleteTable.team == team_id).all()
             )
             team_members = convert_class_instances_to_dicts(team_members_inst)
-            return Response(
-                body={
+            return JSONResponse(
+                content={
                     "team_info": team_info_dict,
                     "team_members": team_members,
                     "admin_uid": user_id,
@@ -678,10 +711,10 @@ async def read_team_info(authorization: str = Header(...)):
             )
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("GET teamadmin Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"GET teamadmin Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.patch("/transferadmin/{new_admin_id}")
@@ -695,7 +728,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
     Action:
         switches value of admin for new_admin to true and old admin to falsee
     Returns:
-        Response : success message
+        JSONResponse : success message
     """
     log.info("Started", endpoint="transferadmin", method="patch")
     try:
@@ -703,18 +736,18 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
         with Session() as session:
             # should I add security layer that confirms  auth_uid matches admin if trying to edit another users info?
             user_id = get_user_id(auth_uid, session)
-            old_admin = session.query(UserTable).get(user_id)
-            new_admin = session.query(UserTable).get(new_admin_id)
+            old_admin = session.query(AthleteTable).get(user_id)
+            new_admin = session.query(AthleteTable).get(new_admin_id)
             setattr(old_admin, "team_admin", False)
             setattr(new_admin, "team_admin", True)
             session.commit()
-            return Response(body={"message": "Update successful"})
+            return JSONResponse(content={"message": "Update successful"})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("PATCH transferadmin Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"PATCH transferadmin Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 # OTHER
@@ -744,13 +777,13 @@ async def create_feedback(
                 user=user_id,
             )
             new_feedback_id = entry.feedback_id
-            return Response(body={new_feedback_id: new_feedback_id})
+            return JSONResponse(content={new_feedback_id: new_feedback_id})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return Response(status_code=404, error_message=str(e))
+        return JSONResponse(status_code=404, content={"error_message":str(e)})
     except Exception as e:
-        log.error("POST feedback Error", error_message=str(e))
-        return Response(status_code=500, error_message=str(e))
+        log.error(f"POST feedback Error, uid={user_id}", error_message=str(e))
+        return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
 @app.post("/sandbox")
@@ -762,4 +795,4 @@ async def create_sandbox(
     byte_array = bytearray(image.file.read())
     pil_image = Image.open(BytesIO(byte_array))
     pil_image.show()
-    return Response(body={"message": "success", "formdata": form_data})
+    return JSONResponse(content={"message": "success", "formdata": form_data})

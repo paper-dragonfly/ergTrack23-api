@@ -8,7 +8,7 @@ from typing import Union, Dict, List, Tuple
 from cryptography.fernet import Fernet
 from hashlib import sha256
 import uuid
-from src.database import UserTable, WorkoutLogTable
+from src.database import AthleteTable, WorkoutLogTable
 
 # Load vals from config
 with open("config/config.yaml", "r") as f:
@@ -50,10 +50,11 @@ def validate_user_token(authorization: str) -> Union[str, bool]:
 
 
 def get_user_id(auth_uid: str, session) -> int:
-    user = session.query(UserTable).filter_by(auth_uid=auth_uid).first()
+    user = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
     return user.user_id
 
 
+# Created by Nico
 def create_new_auth_uid() -> str:
     return str(uuid.uuid4())
 
@@ -63,8 +64,7 @@ def custom_processor(logger, log_method, event_json_str: str) -> str:
     event_dict = _add_author_key(event_dict)    
     event_dict = _convert_level_to_severity(event_dict)
     event_dict = _convert_event_to_message(event_dict)
-    return json.dumps(event_dict)
-
+    return json.dumps(event_dict)    
 
 def _add_author_key(event_dict: dict) -> dict:
     event_dict['author'] = 'api-code'
@@ -93,4 +93,3 @@ def _convert_event_to_message(event_dict: dict) -> dict:
         event_dict['message'] = event_dict['event']
         del event_dict['event']
     return event_dict
-

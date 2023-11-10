@@ -30,7 +30,8 @@ def hit_textract_api(erg_image_bytearray):
             Document={"Bytes": erg_image_bytearray}, FeatureTypes=["TABLES"]
         )
     except Exception as e:
-        raise CustomError(f"hit_textract_api failed, {e}")
+        raise CustomError(status_code=500, message=f"hit_textract_api failed, {e}")
+        
 
 
 # Extract Workout Data - Create List[dict] with table data: row, column, text, text_id
@@ -48,7 +49,7 @@ def create_word_index(image_raw_response: dict) -> dict:
             word_index[block["Id"]] = block["Text"]
         return word_index
     except Exception as e:
-        raise CustomError(f"create_word_index failed, {e}")
+        raise CustomError(status_code=500, message=f"create_word_index failed, {e}")
 
 
 def remove_blocks_before_time(word_index, cell_blocks) -> dict:
@@ -162,7 +163,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         log.debug(f"num cols: {num_cols}")
 
         if not 1 < num_cols < 7:
-            raise CustomError("extract_table_data failed, invalid column count")
+            raise CustomError(status_code=500, message="extract_table_data failed, invalid column count")
         # if num cols is 6 check if last two cols are empty and delete them if they are
         if num_cols == 6:
             # create list of all col 5 and 6 cells
@@ -295,7 +296,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                     table_data.insert(hr_index, cell_data)
         return table_data
     except Exception as e:
-        raise CustomError(f"extract_table_data failed, {e}")
+        raise CustomError(status_code=500, message=f"extract_table_data failed, {e}")
 
 
 # clean workout data - replace column labels & change "," for "."
@@ -317,7 +318,7 @@ def clean_table_data(table_data: List[dict]):
                     cell["text"][word_index] = word.replace(",", ".")
         return table_data
     except Exception as e:
-        raise CustomError(f"clean_table_data failed, {e}")
+        raise CustomError(status_code=500, message=f"clean_table_data failed, {e}")
 
 
 # view workout data - visual only
@@ -343,7 +344,7 @@ def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
                 del lst[-1]
         return wo_dict
     except Exception as e:
-        raise CustomError("compile_workout_data failed, invalid column count")
+        raise CustomError(status_code=500, message="compile_workout_data failed, invalid column count")
 
 
 # extract raw metadata

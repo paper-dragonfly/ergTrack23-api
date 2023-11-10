@@ -1,7 +1,7 @@
 .venv_ergapi
 __pycache__/*
 *.pyc 
-ergImages
+erg_images
 ergImagesGoogleDrive.zip
 ergImagesGooglePhotos.zip
 learn-auth-0423-firebase-adminsdk-key.json
@@ -14,3 +14,4 @@ kaja*
 .vscode/*
 .DS_Store
 tests/erg_screens/
+secret

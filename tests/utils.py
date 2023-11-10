@@ -2,6 +2,7 @@ from src import utils as u
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import MetaData
+import pdb
 
 import sys
 sys.path.append(".")
@@ -28,7 +29,10 @@ def reset_postgres():
 
     try:
         for table in reversed(metadata.sorted_tables):
-                session.execute(table.delete())
+                if table.name == 'alembic_version':
+                     continue
+                else:
+                    session.execute(table.delete())
         session.commit()
 
     except Exception as e:
