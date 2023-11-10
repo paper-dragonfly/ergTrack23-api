@@ -299,9 +299,12 @@ def create_extract_and_process_ergImage(
     log.info("Started", endpoint="ergImage", method="post")
     try:
         auth_uid = validate_user_token(authorization)
+        with Session() as session:
+            athlete = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
+            athlete.last_post = date.today().strftime('%Y-%m-%d')
+            session.commit() 
         with Session() as session: 
             tinit = datetime.now()
-            user_id = get_user_id(auth_uid, session)
             unmerged_ocr_data = []
             ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
             for img in ergImgs:

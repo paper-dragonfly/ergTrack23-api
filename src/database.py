@@ -28,6 +28,7 @@ class AthleteTable(Base):
     auth_uid = Column(String)  # from firebase
     user_name = Column(String)  # from firebase or edited by user
     email = Column(String)  # from firebase
+    last_post = Column(Date)
     dob = Column(Date)
     sex = Column(String)
     weight_class = Column(String)
@@ -39,12 +40,13 @@ class AthleteTable(Base):
 
     def __repr__(self):
         return (
-            "<AthleteTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
+            "<AthleteTable(user_id='%s', auth_uid='%s',  user_name='%s', email='%s', last_post='%s', dob='%s', sex='%s', weight_class='%s', para_class='%s', country='%s', joined='%s', team='%s', team_admin='%s')>"
             % (
                 self.user_id,
                 self.auth_uid,
                 self.user_name,
                 self.email,
+                self.last_post,
                 self.dob,
                 self.sex,
                 self.weight_class,
