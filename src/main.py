@@ -308,20 +308,15 @@ def create_extract_and_process_ergImage(
                 filename = img.filename
                 image_bytes = img.file.read()
                 photo_hash = create_photo_hash(image_bytes, auth_uid, session)
-                # Send photo to Textract (or get raw_blob from library) 
-                # Process raw data to get processed workout and metadata 
+                # 1. Send photo to Textract (or get raw_blob from library) 
+                # 2. Process raw data to get processed workout and metadata 
                 ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash)
-                pdb.set_trace()
-                t4 = datetime.now()
                 upload_blob_thread = threading.Thread(
                     target=upload_blob,
                     args=("erg_memory_screen_photos", image_bytes, photo_hash),
                     name=f"UploadBlobThread_{filename}",
                 )
                 upload_blob_thread.start()
-                t5 = datetime.now()
-                d3 = t5 - t4
-                log.info("Time to add blob. Skipped with threading? :", blob_store_dur=d3)
                 unmerged_ocr_data.append(ocr_data)
             if len(unmerged_ocr_data) == 1:
                 tf = datetime.now()
