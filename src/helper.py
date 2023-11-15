@@ -52,6 +52,7 @@ def get_processed_ocr_data(
         with open("src/rawocr.json", "w") as f:
             raw_ocr_library[photo_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
+            
     processed_data = process_raw_ocr(raw_textract_resp, photo_hash)
     t3 = datetime.now()
     d2 = t3 - t2

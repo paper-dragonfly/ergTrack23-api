@@ -158,6 +158,8 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
         log.debug(f"cell blocks len: {len(cell_blocks)}")
 
+        # PROCESS INTS VAR HERE #current
+
         # CHECK number of columns
         num_cols = cell_blocks[-1]["ColumnIndex"]
         log.debug(f"num cols: {num_cols}")
@@ -412,6 +414,11 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     table_data_clean = clean_table_data(table_data)
     log.debug("table_data_clean: ", data=table_data_clean)
     workout_data = compile_workout_data(table_data_clean)
+    #current
+    # process variable intervals
+    pdb.set_trace()
+    workout_data, rest_info = process_variable_intervals(workout_data)
+
     log.debug("workout_data: ", data=workout_data)
     workout_df = pd.DataFrame(workout_data)
 
@@ -419,6 +426,8 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
     log.debug("raw_meta: ", data=raw_meta)
     clean_meta = clean_metadata(raw_meta)
     meta_df = pd.DataFrame([clean_meta])
+
+    
 
     # KEEP GOING FROM HERE ADDING LOGS. MAYBE MAKE CLEAN META INTO DF
     # Print Pretty
@@ -435,3 +444,22 @@ def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
         workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash]
     )
     return processed_data
+
+
+#current
+def process_variable_intervals(workout_data:WorkoutDataReturn):
+    rest_info = {}
+    for key in workout_data.keys():
+        if key == 'time' or key == 'meter':
+            rest_info[key] = (workout_data[key][2::2])
+        workout_data[key] = workout_data[key][:2]+workout_data[key][3::2]
+
+    return workout_data, rest_info
+    
+
+# def process_variable_intervals(cell_blocks:List[dict], time_row_index:int):
+#     # keep first three rows then every other row becomes rest...I think
+#     first_rest_row = time_row_index + 3 
+#     cell_blocks_restless = cell_blocks[:first_rest_row] + cell_blocks[first_rest_row::2]
+#     pass
+
