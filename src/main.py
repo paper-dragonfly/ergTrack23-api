@@ -137,7 +137,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
         tinit = datetime.now()
         email = request.email
         team_id = None
-        if DEV_ENV == "prod":
+        if DEV_ENV == "prod" or DEV_ENV == 'hybrid':
             id_token = authorization.split(" ")[1]
             decoded_token = auth.verify_id_token(id_token)
         else:

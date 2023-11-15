@@ -1,3 +1,5 @@
+import sys
+sys.path.append('.')
 import os
 import time
 from PIL import Image
@@ -5,6 +7,7 @@ from fastapi import UploadFile
 import requests
 import io
 from tests.utils import generate_token
+import pdb
 
 # Directory containing images
 IMAGE_DIR = 'erg_images'
@@ -29,10 +32,15 @@ def post_image(image_path, image_size, unprocessable_images = CANNOT_OCR):
     upload_file = UploadFile(filename=image_path, file=image_stream)
 
     # POST the image to the endpoint
-    files = {'file': (upload_file.filename, upload_file.file, 'image/jpeg')}
+    files = {'photo1': (upload_file.filename, upload_file.file, 'image/jpeg')}
+    
+    data = {'numSubs': 8,
+            'authorization': AUTH_TOKEN }
+    
     start_time = time.time()
-    response = requests.post(API_ENDPOINT, files=files)
+    response = requests.post(API_ENDPOINT, files=files, data=data)
     response_time = time.time() - start_time
+    pdb.set_trace()
 
     # Check successful OCR 
     if response.status_code != 200:
@@ -43,6 +51,7 @@ def post_image(image_path, image_size, unprocessable_images = CANNOT_OCR):
     # Check if image size matches expected size
     image_size_matches = response.json().get('image_size', None) == image_size
 
+    print(response.json())
     return response.json(), response_time, response.json().get('image_size', None), image_size_matches
 
 def compare_ocr_quality_at_different_resolutions(IMAGE_DIR): 
@@ -94,3 +103,8 @@ def compare_ocr_quality_at_different_resolutions(IMAGE_DIR):
             os.remove(temp_image_path)
 
         original_image.close()
+
+if __name__ == "__main__":
+    post_image('erg_images/sarah2k.jpeg',100)
+
+
