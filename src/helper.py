@@ -18,7 +18,7 @@ log = structlog.get_logger()
 
 
 def get_processed_ocr_data(
-    image_bytes: bytes, photo_hash:str
+    image_bytes: bytes, photo_hash:str, ints_var:bool
 ) -> OcrDataReturn:
     """
     Receives: erg image filename & bytes
@@ -52,8 +52,8 @@ def get_processed_ocr_data(
         with open("src/rawocr.json", "w") as f:
             raw_ocr_library[photo_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
-            
-    processed_data = process_raw_ocr(raw_textract_resp, photo_hash)
+
+    processed_data = process_raw_ocr(raw_textract_resp, photo_hash, ints_var)
     t3 = datetime.now()
     d2 = t3 - t2
     log.info("Time to process raw data", process_dur=d2)
@@ -80,9 +80,11 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
         log.info(f"{image_hash} uploaded to {bucket_name}.")
 
 
-def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int) -> OcrDataReturn:
+def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bool) -> OcrDataReturn:
     # Assumptions
     # 1. each photo contains max possible  # undocumented Sub-WOs
+
+    #grab info for first photo - will update this
     merged_data: OcrDataReturn = unmerged_data[0]
 
     # Combine photo_hash from all unmerged_data
@@ -109,7 +111,17 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int) -> OcrDataR
     wo_data.split.extend(unmerged_data[-1].workout_data.split[last_subs_idx:])
     wo_data.sr.extend(unmerged_data[-1].workout_data.sr[last_subs_idx:])
     wo_data.hr.extend(unmerged_data[-1].workout_data.hr[last_subs_idx:])
+
+    # merge rest_info from varInts 
+    if varInts:
+        full_rest_info = {'time': [], 'meter': []}
+        for ocr_data in unmerged_data:
+            full_rest_info['time'] += ocr_data.rest_info['time']
+            full_rest_info['meter'] += ocr_data.rest_info['meter']
+        merged_data.rest_info = full_rest_info
+
     return merged_data
+
 
 # Custom encoder function
 def datetime_encoder(unserializable_val):

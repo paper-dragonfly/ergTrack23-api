@@ -40,7 +40,6 @@ def post_image(image_path, image_size, unprocessable_images = CANNOT_OCR):
     start_time = time.time()
     response = requests.post(API_ENDPOINT, files=files, data=data)
     response_time = time.time() - start_time
-    pdb.set_trace()
 
     # Check successful OCR 
     if response.status_code != 200:

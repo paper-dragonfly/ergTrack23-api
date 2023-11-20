@@ -77,21 +77,27 @@ class WorkoutDataReturn(BaseModel):
     sr: List[str]
     hr: List[str] = None
 
-
+class RestInfoSchema(BaseModel):
+    time: List[str]
+    meter: list #ideally List[int] but doing this to avoid error atm
+    
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
     photo_hash: List[str]
+    rest_info : RestInfoSchema
     
 
-# API Response Obj
-class Response(BaseModel):
-    status_code: int = 200
-    error_message: str = None
-    body: dict = None
+# # API Response Obj - DEPRICATED, use native JSONResponse
+# class Response(BaseModel):
+#     status_code: int = 200
+#     error_message: str = None
+#     body: dict = None
 
 
 # Miscellaneous
+ 
+
 class WorkoutLogSchema(BaseModel):
     workout_id: int
     user_id: int

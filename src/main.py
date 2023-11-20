@@ -288,6 +288,7 @@ def create_extract_and_process_ergImage(
     photo1: UploadFile,
     photo2: Union[UploadFile, None] = None,
     photo3: Union[UploadFile, None] = None,
+    varInts: bool = False,
     numSubs: Union[int, None] = None,
     authorization: str = Header(...),
 ):
@@ -314,7 +315,7 @@ def create_extract_and_process_ergImage(
                 photo_hash = create_photo_hash(image_bytes, auth_uid, session)
                 # 1. Send photo to Textract (or get raw_blob from library) 
                 # 2. Process raw data to get processed workout and metadata 
-                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash)
+                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash, varInts)
                 upload_blob_thread = threading.Thread(
                     target=upload_blob,
                     args=("erg_memory_screen_photos", image_bytes, photo_hash),
@@ -322,13 +323,13 @@ def create_extract_and_process_ergImage(
                 )
                 upload_blob_thread.start()
                 unmerged_ocr_data.append(ocr_data)
-            if len(unmerged_ocr_data) == 1:
+            if len(unmerged_ocr_data) == 1: #only one photo
                 tf = datetime.now()
                 dtot = tf - tinit
                 log.info("TOTAL TIME", total_dur=dtot)
                 json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
                 return JSONResponse(content=json_compatable_ocr_data)
-            final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs)
+            final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs, varInts)
             dtot = datetime.now() - tinit
             log.info("TOTAL TIME", total_dur=dtot)
             json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))

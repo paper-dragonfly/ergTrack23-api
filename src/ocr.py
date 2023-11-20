@@ -134,6 +134,7 @@ def process_merged_cols(cell_blocks, time_row_index, word_index):
 def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
     # if previous block didn't correct empty cell, add empty entry - see FIX  below
     # fix (i.e. not needed) would apply if SR had been lumped in with split or HR lumped in with SR
+    # if fixed: when processing split/SR, unmerged SR/HR cell would have been added 
     if not (
         table_data[-1]["row"] == block["RowIndex"]
         and table_data[-1]["col"] == block["ColumnIndex"]
@@ -157,8 +158,6 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
         ]
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
         log.debug(f"cell blocks len: {len(cell_blocks)}")
-
-        # PROCESS INTS VAR HERE #current
 
         # CHECK number of columns
         num_cols = cell_blocks[-1]["ColumnIndex"]
@@ -187,7 +186,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
             table_data = process_merged_cols(
                 cell_blocks, time_row_index, word_index
             )  # TODO: come back to add HR
-        else:
+        else: #Num cols = 4 or 5 => most common case
             table_data = []
             for block in cell_blocks:
                 #  if cell is empty, add empty entry.
@@ -205,7 +204,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                     for word_id in cell_data["text_ids"]:
                         cell_data["text"].append(word_index[word_id])
                     table_data.append(cell_data)
-                    # FIX for when stroke rate gets lumped in with split but still recognized as two words
+                    # FIX for when stroke rate gets lumped in with split in Col3 but still recognized as two words
                     if block["ColumnIndex"] == 3 and len(cell_data["text_ids"]) > 1:
                         table_data.append(
                             {
@@ -215,13 +214,28 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "text_id": [cell_data["text_ids"][-1]],
                             }
                         )
+
                     # FIX HR gets lumped in with SR in col4 either as two words or as one
                     if block["ColumnIndex"] == 4 and (
                         len(cell_data["text_ids"]) > 1
-                        or 4 < len(cell_data["text"][0]) < 7
+                        or 4 < len(cell_data["text"][0])
                     ):
                         # delete most recent cell entry in table_data - it contains the merged SR/HR data
                         del table_data[-1]
+                        # SubFix: Split, SR and HR all lumped together as seperate words *rare
+                        # pdb.set_trace()
+                        if len(cell_data["text"]) == 3 and not table_data[-1]['text']:
+                            # split cell currently an empty cell. Fill content
+                            table_data[-1]['text_ids'] = [cell_data['text_ids'][0]]
+                            table_data[-1]['text'] = [cell_data['text'][0]]
+                            del cell_data['text_ids'][0]
+                            del cell_data['text'][0]
+                        #Subfix: Split, SR, HR lumped together as one word with spaces *rare
+                        if len(cell_data['text'][0]) > 7 and not table_data[-1]['text'][0]:
+                            text = cell_data['text'][0].strip() 
+                            table_data[-1]['text_ids'] = ['fm SR']
+                            table_data[-1]['text'] = [text[:6]]
+                            cell_data['text'][0] = text[6:]
                         # isolate SR and HR data
                         if len(cell_data["text_ids"]) > 1:
                             sr = cell_data["text"][0]
@@ -255,7 +269,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
                                 "row": table_data[0]["row"],
                                 "col": 5,
                                 "text": ["hr"],
-                                "text_id": ["fm manual"],
+                                "text_id": ["text hard coded"],
                             }
 
                             table_data.insert(4, hr_head)
@@ -324,16 +338,21 @@ def clean_table_data(table_data: List[dict]):
 
 
 # view workout data - visual only
-def compile_workout_data(wo_clean: List[dict]) -> WorkoutDataReturn:
+def compile_workout_data(wo_clean: List[dict], ints_var:bool) -> WorkoutDataReturn:
     try:
         col_head_row = wo_clean[0]["row"]
         wo_dict = {"time": [], "meter": [], "split": [], "sr": [], "hr": []}
+        rest_info = {"time": [], "meter":[]}
         for cell in wo_clean:
             if cell["row"] > col_head_row:
                 if cell["col"] == 1:
                     wo_dict["time"].append(cell["text"][0])
+                    if ints_var and len(cell['text']) == 2:
+                        rest_info['time'].append(cell["text"][1])
                 elif cell["col"] == 2:
                     wo_dict["meter"].append(cell["text"][0])
+                    if ints_var and len(cell['text']) == 2:
+                        rest_info['meter'].append(cell["text"][1])
                 elif cell["col"] == 3:
                     wo_dict["split"].append(cell["text"][0])
                 elif cell["col"] == 4:
@@ -406,48 +425,72 @@ def clean_metadata(
     return meta_dict
 
 
-def process_raw_ocr(raw_response: dict, photo_hash: str) -> OcrDataReturn:
+def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDataReturn:
     # pdb.set_trace()
     word_index = create_word_index(raw_response)
     table_data = extract_table_data(raw_response, word_index)
     log.debug("Table data: ", data=table_data)
     table_data_clean = clean_table_data(table_data)
     log.debug("table_data_clean: ", data=table_data_clean)
-    workout_data = compile_workout_data(table_data_clean)
-    #current
-    # process variable intervals
-    pdb.set_trace()
-    workout_data, rest_info = process_variable_intervals(workout_data)
-
+    #current 
+    # Process variable interval workouts when rest info is merged with row above
+    if ints_var: 
+        rest_info, merged_rows = get_rest_info_fm_merged_rows(table_data_clean)
+    workout_data = compile_workout_data(table_data_clean, ints_var)
+    # Process variable interval workouts when rest info has its own row 
+    if ints_var and not merged_rows:
+        log.debug("workout_data pre-varInst adjusted: ", data=workout_data)
+        workout_data, rest_info = process_variable_intervals_distinct_rows(workout_data)
     log.debug("workout_data: ", data=workout_data)
-    workout_df = pd.DataFrame(workout_data)
 
     raw_meta = extract_metadata(word_index, raw_response)
     log.debug("raw_meta: ", data=raw_meta)
     clean_meta = clean_metadata(raw_meta)
-    meta_df = pd.DataFrame([clean_meta])
-
-    
-
-    # KEEP GOING FROM HERE ADDING LOGS. MAYBE MAKE CLEAN META INTO DF
-    # Print Pretty
-    log.debug("Metadata", data=meta_df)
-    log.debug("Workout Data", data=workout_df)
-    # print("Metadata")
-    # for m in clean_meta:
-    #     print(m + ":", clean_meta[m])
-    # # print(clean_metadata(raw_meta))
-    # print("\nWorkout Data")
-    # print(workout_df)
+    log.debug("Variable Intervals rest info", data=rest_info)
+    try: 
+        workout_df = pd.DataFrame(workout_data)
+        meta_df = pd.DataFrame([clean_meta])
+        # Print Pretty
+        log.debug("Metadata Pretty Print", data=meta_df)
+        log.debug("Workout Data Pretty Print", data=workout_df)
+    except:
+        pass
 
     processed_data = OcrDataReturn(
-        workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash]
+        workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash], rest_info=rest_info
     )
     return processed_data
 
+def get_rest_info_fm_merged_rows(wo_clean) -> dict:
+    try:
+        merged_rows = False
+        rest_info = {'time': [], 'meter': []}
+        col_head_row = wo_clean[0]["row"]
+        for cell in wo_clean:
+            if cell["row"] > col_head_row:
+                if cell["col"] == 1 and len(cell['text']) == 2:
+                    merged_rows = True 
+                    rest_info['time'].append(cell["text"][1])
+                elif cell["col"] == 2 and len(cell['text']) == 2:
+                    rest_info['meter'].append(cell["text"][1])
+        return rest_info, merged_rows 
+    except Exception as e:
+        raise CustomError(status_code=500, message=f"get_rest_info_fm_merged_rows failed, {e}")
 
 #current
-def process_variable_intervals(workout_data:WorkoutDataReturn):
+def process_variable_intervals_distinct_rows(workout_data:WorkoutDataReturn):
+    """
+    Receives workout data (example below)
+        1. rest as its own row
+        {'time': ['24:00.0', '8:00.0', 'r:00', '8:00.0', 'H:00', '4:00.0', 'P:00', '4:00.0', 'F:00'], 
+        'meter': ['5602', '1826', '0', '1851', '0', '940', '0', '985', '0'], 
+        'split': ['2:08.5', '2:11.4', '', '2:09.6', '', '2:07.6', '', '2:01.8', ''], 
+        'sr': ['21', '18', '', '20', '', '22', '', '24', ''], 
+        'hr': ['', '', '', '', '', '', '', '', '']}
+
+    Create a dict of rest info e.g. {'time':['r1:00', 'r1:00'], 'meter':[23, 43]}
+    Also, remove rest info and extra black spaces from workout data 
+    """
     rest_info = {}
     for key in workout_data.keys():
         if key == 'time' or key == 'meter':
