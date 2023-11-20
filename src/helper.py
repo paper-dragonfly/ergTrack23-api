@@ -116,8 +116,8 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bo
     if varInts:
         full_rest_info = {'time': [], 'meter': []}
         for ocr_data in unmerged_data:
-            full_rest_info['time'] += ocr_data.rest_info['time']
-            full_rest_info['meter'] += ocr_data.rest_info['meter']
+            full_rest_info['time'] += ocr_data.rest_info.time
+            full_rest_info['meter'] += ocr_data.rest_info.meter
         merged_data.rest_info = full_rest_info
 
     return merged_data
