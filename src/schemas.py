@@ -16,6 +16,7 @@ class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
     photoHash: List[str]
+    varInts: Optional[List[dict]] = None 
 
 
 class PostWorkoutSchema2(BaseModel):

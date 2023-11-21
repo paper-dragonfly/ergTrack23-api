@@ -83,9 +83,16 @@ class WorkoutLogTable(Base):
     subworkouts = Column(JSON)
     comment = Column(String)
     post_to_team = Column(Boolean)
+    var_ints_rest = Column(JSON)
 
     def __repr__(self):
-        return f"<WorkoutLogTable(workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, time={self.time}, meter={self.meter}, split={self.split}, stroke_rate={self.stroke_rate}, heart_rate={self.heart_rate}, split_variance={self.split_variance}, watts={self.watts}, cal={self.cal}, image_hash={self.image_hash}, subworkouts={self.subworkouts}, comment={self.comment})>"
+        return f"""<WorkoutLogTable(
+            workout_id={self.workout_id}, user_id={self.user_id}, date={self.date}, 
+            time={self.time}, meter={self.meter}, split={self.split}, 
+            stroke_rate={self.stroke_rate}, heart_rate={self.heart_rate}, split_variance={self.split_variance}, 
+            watts={self.watts}, cal={self.cal}, image_hash={self.image_hash}, 
+            subworkouts={self.subworkouts}, comment={self.comment}, post_to_team={self.post_to_team},
+            var_ints_rest_info={self.var_ints_rest})>"""
     
 class TeamTable(Base):
     __tablename__ = 'team'

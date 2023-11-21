@@ -434,6 +434,7 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
     log.debug("table_data_clean: ", data=table_data_clean)
     #current 
     # Process variable interval workouts when rest info is merged with row above
+    rest_info = {'time': [], 'meter': []}
     if ints_var: 
         rest_info, merged_rows = get_rest_info_fm_merged_rows(table_data_clean)
     workout_data = compile_workout_data(table_data_clean, ints_var)

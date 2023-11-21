@@ -390,7 +390,9 @@ async def create_workout(
             # get user_id
             user_id = get_user_id(auth_uid, session)
             # create data entry (WorkoutLogTable  instance)
+            pdb.set_trace()
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
+            var_ints_json = json.dumps(workoutData.varInts) if workoutData.varInts else None 
             photo_hash_joined = "&nextphotohash&".join(workoutData.photoHash)
             workout_entry = WorkoutLogTable(
                 user_id=user_id,
@@ -408,6 +410,7 @@ async def create_workout(
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
                 post_to_team=workoutData.woMetaData["postToTeam"],
+                var_ints_rest = var_ints_json
             )
 
             # use sqlAlchemy to add entry to db
