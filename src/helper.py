@@ -81,10 +81,11 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
 
 
 def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bool) -> OcrDataReturn:
+    
     # Assumptions
     # 1. each photo contains max possible  # undocumented Sub-WOs
-
-    #grab info for first photo - will update this
+    pdb.set_trace()
+    #grab info for first photo - will update/add to this
     merged_data: OcrDataReturn = unmerged_data[0]
 
     # Combine photo_hash from all unmerged_data
@@ -94,7 +95,7 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bo
     # Merge WorkoutDataReturn objects
     wo_data: WorkoutDataReturn = merged_data.workout_data
 
-    # add all sub-workouts from middle photos
+    # add all sub-workouts (and rest info) from middle photos 
     # Iterate over all elements in unmerged_data except first and last
     # basically add  data from photo2 in  case with 3 photos
     for data in unmerged_data[1:-1]:
@@ -103,23 +104,29 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bo
         wo_data.split.extend(data.workout_data.split[1:])
         wo_data.sr.extend(data.workout_data.sr[1:])
         wo_data.hr.extend(data.workout_data.hr[1:])
+        merged_data.rest_info.time.extend(data.rest_info.time[1:])
+        merged_data.rest_info.meter.extend(data.rest_info.meter[1:])
 
     # add remaining sub-workouts from last photo
-    last_subs_idx = -1 * (numSubs % 8)
+    last_subs_idx = (-1 * (numSubs % 8)) if not varInts else (-1*(numSubs % 4))
     wo_data.time.extend(unmerged_data[-1].workout_data.time[last_subs_idx:])
     wo_data.meter.extend(unmerged_data[-1].workout_data.meter[last_subs_idx:])
     wo_data.split.extend(unmerged_data[-1].workout_data.split[last_subs_idx:])
     wo_data.sr.extend(unmerged_data[-1].workout_data.sr[last_subs_idx:])
     wo_data.hr.extend(unmerged_data[-1].workout_data.hr[last_subs_idx:])
+    merged_data.rest_info.time.extend(unmerged_data[-1].rest_info.time[last_subs_idx:])
+    merged_data.rest_info.meter.extend(unmerged_data[-1].rest_info.meter[last_subs_idx:])
 
     # merge rest_info from varInts 
-    if varInts:
-        full_rest_info = {'time': [], 'meter': []}
-        for ocr_data in unmerged_data:
-            full_rest_info['time'] += ocr_data.rest_info.time
-            full_rest_info['meter'] += ocr_data.rest_info.meter
-        merged_data.rest_info = full_rest_info
+    #TODO : below doesn't work. need to adjust to use last_subs_idx right now it's putting all rest_info into dict
+    # if varInts:
+    #     full_rest_info = {'time': [], 'meter': []}
+    #     for ocr_data in unmerged_data:
+    #         full_rest_info['time'] += ocr_data.rest_info.time
+    #         full_rest_info['meter'] += ocr_data.rest_info.meter
+    #     merged_data.rest_info = full_rest_info
 
+    #     for data in unmerged_data[1:-1]
     return merged_data
 
 

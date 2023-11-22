@@ -80,7 +80,7 @@ class WorkoutDataReturn(BaseModel):
 
 class RestInfoSchema(BaseModel):
     time: List[str]
-    meter: list #ideally List[int] but doing this to avoid error atm
+    meter: List[int]
     
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn

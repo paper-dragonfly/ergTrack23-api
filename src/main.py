@@ -390,7 +390,6 @@ async def create_workout(
             # get user_id
             user_id = get_user_id(auth_uid, session)
             # create data entry (WorkoutLogTable  instance)
-            pdb.set_trace()
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
             var_ints_json = json.dumps(workoutData.varInts) if workoutData.varInts else None 
             photo_hash_joined = "&nextphotohash&".join(workoutData.photoHash)
