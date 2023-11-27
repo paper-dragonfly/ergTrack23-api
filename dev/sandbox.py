@@ -465,3 +465,28 @@ if __name__ == "__main__":
 #         "subworkouts": '[{"id": "Y2DcYttk3uzQcANjrdivP", "time": "1:59.3", "distance": 500, "split": "1:59.3", "strokeRate": 32, "heartRate": null}, {"id": "o2nAZMDb2lIsPL5D1Eb0O", "time": "2:14.1", "distance": 1000, "split": "2:14.1", "strokeRate": 29, "heartRate": null}, {"id": "g5DY-QyqAT7jxNc9HRsmi", "time": "2:17.7", "distance": 1500, "split": "2:17.7", "strokeRate": 24, "heartRate": null}, {"id": "QVsYUycapSsiOVCtpNfMu", "time": "2:21.9", "distance": 2000, "split": "2:21.9", "strokeRate": 31, "heartRate": null}]',
 #     },
 # ]
+
+## 11/22/23 /ergtrack23api/src/main.py(327)create_extract_and_process_ergImage() pdb.set_trace() unmerged_ocr_data
+[OcrDataReturn(
+    workout_meta=CleanMetaReturn(wo_name='5x20:00:2:30r', total_type='Total Time:', wo_date='Nov 15 2023', total_val='1:52:30.0'), 
+    workout_data=WorkoutDataReturn(
+        time=['1:40:00.0', '20:00.0', '20:00.0', '20:00.0', '20:00.0', '20:00.0'], 
+        meter=['20428', '4049', '4127', '4102', '4135', '4014'], 
+        split=['2:26.8', '2:28.1', '2:25.3', '2:26.2', '2:25.1', '2:29.4'], 
+        sr=['16', '16', '17', '17', '17', '17'], 
+        hr=['', '', '131', '', '135', '', '131', '', '', '132', '', '137']), 
+    photo_hash=['simba_732ab5d01cca2e57e5f9ef49f5cc7e2dc0eaf595f7d408e5cba7aeb698ee5156'], 
+    rest_info=RestInfoSchema(time=[], meter=[]))]
+
+noavhr4
+[OcrDataReturn(
+    workout_meta=CleanMetaReturn(wo_name='3x15:00/2:00r', total_type='Total Time:', wo_date='Sep 13 2023', total_val='51:00.0'), 
+    workout_data=WorkoutDataReturn(
+        time=['45:00.0', '15:00.0', '15:00.0', '15:00.0'], 
+        meter=['10068', '3364', '3374', '3331'], 
+        split=['2:14.0', '2:13.7', '2:13.3', '2:15.0'], 
+        sr=['19', '19', '20', '20'], 
+        hr=['157', '147', '146']), 
+    photo_hash=['simba_8bc369ec4ef073909f04566151e6441b7746edff689b6f0c3423ab4c73fd91e3'], 
+    rest_info=RestInfoSchema(time=[], meter=[]))]
+

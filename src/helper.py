@@ -84,10 +84,8 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bo
     
     # Assumptions
     # 1. each photo contains max possible  # undocumented Sub-WOs
-    pdb.set_trace()
     #grab info for first photo - will update/add to this
     merged_data: OcrDataReturn = unmerged_data[0]
-
     # Combine photo_hash from all unmerged_data
     photo_hash = [data.photo_hash[0] for data in unmerged_data]
     merged_data.photo_hash = photo_hash
