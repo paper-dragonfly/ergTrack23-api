@@ -1,4 +1,5 @@
 import sys
+import os 
 # hack to make imports from `src` work
 sys.path.append(".")
 
@@ -31,4 +32,7 @@ def setup():
     This fixture runs before every test module execution.
     To run before every test function, change the scope to `function`.
     """
-    tu.reset_postgres()
+    if os.environ.get('DEV_ENV') == 'docker_compose':
+        tu.reset_postgres()
+    else:
+        raise Exception('DEV_ENV != docker_compose')

@@ -16,6 +16,7 @@ class PostWorkoutSchema(BaseModel):
     woMetaData: dict
     tableMetrics: List[dict]
     photoHash: List[str]
+    varInts: Optional[List[dict]] = None 
 
 
 class PostWorkoutSchema2(BaseModel):
@@ -77,21 +78,27 @@ class WorkoutDataReturn(BaseModel):
     sr: List[str]
     hr: List[str] = None
 
-
+class RestInfoSchema(BaseModel):
+    time: List[str]
+    meter: List[int]
+    
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
     photo_hash: List[str]
+    rest_info : RestInfoSchema
     
 
-# API Response Obj
-class Response(BaseModel):
-    status_code: int = 200
-    error_message: str = None
-    body: dict = None
+# # API Response Obj - DEPRICATED, use native JSONResponse
+# class Response(BaseModel):
+#     status_code: int = 200
+#     error_message: str = None
+#     body: dict = None
 
 
 # Miscellaneous
+ 
+
 class WorkoutLogSchema(BaseModel):
     workout_id: int
     user_id: int
