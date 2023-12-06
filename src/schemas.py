@@ -117,7 +117,10 @@ class WorkoutLogSchema(BaseModel):
     comment: str
     post_to_team: Optional[bool]  
 
-
+class WorkoutsDTMSchema(BaseModel):
+    date: date
+    time: int
+    meter: int
 
 class CellData(BaseModel):
     row: str

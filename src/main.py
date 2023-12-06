@@ -31,7 +31,8 @@ from src.schemas import (
     PostFeedbackSchema,
     PostErgImageSchema,
     LoginRequest,
-    CustomError
+    CustomError,
+    WorkoutsDTMSchema,
 )
 from src.utils import (
     create_encrypted_token,
@@ -52,7 +53,8 @@ from src.helper import (
     add_user_info_to_workout,
     merge_ocr_data,
     datetime_encoder,
-    create_photo_hash
+    create_photo_hash,
+    process_dtm_workouts,
 )
 
 app = FastAPI()
@@ -456,7 +458,10 @@ async def read_team(authorization: str = Header(...)):
     """
     Receives userToken
     Uses token to get user_id, queries user table for team_id
-    returns: if user is on team - info for team matching team_id + if admin
+    retrieve team_info: if user is on team gets info for team matching team_id + if admin
+    retrieve team_workout_basics: if on team gets date+times+meters for all team workouts
+    RETURNS: team_info + team_workout_basics
+    
     """
     log.info("Started", endpoint="team", method="get")
     try:
@@ -465,21 +470,48 @@ async def read_team(authorization: str = Header(...)):
             user_id = get_user_id(auth_uid, session)
             user_info = session.query(AthleteTable).get(user_id).__dict__
             if user_info["team"]:
+                # Get user_team_info
                 team = session.query(TeamTable).get(user_info["team"])
                 team_info = {
                     column.name: getattr(team, column.name)
                     for column in TeamTable.__table__.columns
                 }
                 admin = user_info["team_admin"]
-                return JSONResponse(
-                    content={
+                user_team_info = {
                         "team_member": True,
                         "team_info": team_info,
                         "team_admin": admin,
                     }
+                # get date, meters, time for team_workouts
+                team_id = team_info['team_id']
+                team_members = (
+                    session.query(AthleteTable).filter(AthleteTable.team == team_id).all()
                 )
+                # get workouts for team members where post_to_team == True
+                team_workouts_dtm = (
+                    session.query(
+                        WorkoutLogTable.date,
+                        WorkoutLogTable.time,
+                        WorkoutLogTable.meter)
+                    .filter(
+                        WorkoutLogTable.user_id.in_(
+                            [athlete.user_id for athlete in team_members]
+                        ),
+                        WorkoutLogTable.post_to_team == True,
+                    )
+                    .all()
+                )
+                #[(datetime.date(2022, 7, 1), '8:52.9', 2000), (datetime.date(2023, 2, 14), '52:59.8', 12000)]
+                workouts_dtm: List[
+                    WorkoutsDTMSchema
+                ] = process_dtm_workouts(team_workouts_dtm)
+                return JSONResponse(
+                    content= {
+                        "user_team_info": user_team_info,
+                        "team_workouts_dtm": workouts_dtm
+                        })
             else:
-                return JSONResponse(content={"team_member": False})
+                return JSONResponse(content={"user_team_info": {'team_member': False}})
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
         return JSONResponse(status_code=404, content={"error_message":str(e)})
