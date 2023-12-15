@@ -363,7 +363,7 @@ def compile_workout_data(wo_clean: List[dict], ints_var:bool) -> WorkoutDataRetu
         if wo_dict["meter"][-1] and not wo_dict["time"][-1]:
             for lst in wo_dict.values():
                 del lst[-1]
-        return wo_dict
+        return WorkoutDataReturn(time=wo_dict["time"], meter=wo_dict['meter'], split=wo_dict['split'], sr=wo_dict['sr'], hr=wo_dict['hr'])
     except Exception as e:
         raise CustomError(status_code=500, message="compile_workout_data failed, invalid column count")
 
@@ -442,6 +442,16 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
     if ints_var and not merged_rows:
         log.debug("workout_data pre-varInst adjusted: ", data=workout_data)
         workout_data, rest_info = process_variable_intervals_distinct_rows(workout_data)
+    
+    #Fix common issues with HR data - fm interval workouts where average HR isn't calculated bt C2Erg
+    # Remove empty entries in HR list - assumes time has correct number of entries
+    if len(workout_data.hr) > len(workout_data.time):
+        workout_data.hr = [h for h in workout_data.hr if h]
+    # find and add average 
+    if len(workout_data.hr) == len(workout_data.time) - 1: 
+        av_hr = int(sum(int(h) for h in workout_data.hr)/len(workout_data.hr))
+        workout_data.hr.insert(0,av_hr) 
+
     log.debug("workout_data: ", data=workout_data)
 
     raw_meta = extract_metadata(word_index, raw_response)
