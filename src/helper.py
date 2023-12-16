@@ -224,3 +224,5 @@ def add_user_info_to_workout(workouts: List[dict], members: List[dict]) -> List[
         workouts[i]["sex"] = members_by_id[uid]["sex"]
         workouts[i]["dob"] = members_by_id[uid]["dob"]
     return workouts
+
+
