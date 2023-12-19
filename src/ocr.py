@@ -363,7 +363,7 @@ def compile_workout_data(wo_clean: List[dict], ints_var:bool) -> WorkoutDataRetu
         if wo_dict["meter"][-1] and not wo_dict["time"][-1]:
             for lst in wo_dict.values():
                 del lst[-1]
-        return wo_dict
+        return WorkoutDataReturn(time=wo_dict["time"], meter=wo_dict['meter'], split=wo_dict['split'], sr=wo_dict['sr'], hr=wo_dict['hr'])
     except Exception as e:
         raise CustomError(status_code=500, message="compile_workout_data failed, invalid column count")
 
@@ -442,6 +442,19 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
     if ints_var and not merged_rows:
         log.debug("workout_data pre-varInst adjusted: ", data=workout_data)
         workout_data, rest_info = process_variable_intervals_distinct_rows(workout_data)
+    
+    #Fix common issues with HR data - fm interval workouts where average HR isn't calculated bt C2Erg
+    # Remove empty entries in HR list - assumes time has correct number of entries
+    if len(workout_data.hr) > len(workout_data.time):
+        workout_data.hr = [h for h in workout_data.hr if h]
+    # find and add average 
+    if len(workout_data.hr) == len(workout_data.time) - 1: 
+        av_hr = int(sum(int(h) for h in workout_data.hr)/len(workout_data.hr))
+        workout_data.hr.insert(0,av_hr) 
+    # only summary row processed
+    if len(workout_data.time) == 1: 
+        workout_data = non_table_processing(word_index)
+
     log.debug("workout_data: ", data=workout_data)
 
     raw_meta = extract_metadata(word_index, raw_response)
@@ -499,7 +512,63 @@ def process_variable_intervals_distinct_rows(workout_data:WorkoutDataReturn):
         workout_data[key] = workout_data[key][:2]+workout_data[key][3::2]
 
     return workout_data, rest_info
-    
+
+
+def clean_wordlist_for_non_table_extraction(word_index):
+    words = list(word_index.values())
+    #clean data, get rid of commas 
+    words_clean = [w.replace(',', '.') for w in words]
+    words_split = []
+    for w in words_clean:
+        words_split.extend(w.split())
+    return words_split
+
+def non_table_processing(word_index:dict):
+    """
+    This exists for the case where of interval workouts that have no average HR 
+    and where my other OCR only extracted the summary row of data. Oddly specific 
+    but a common kind of workout, especially for me. 
+    This function is a hack in a lot of ways and makes a lot of assumptions. 
+    Certainly it can be improved but I'm hoping it'll be good enough for most cases
+    """
+    words = clean_wordlist_for_non_table_extraction(word_index)
+    log.debug("OCR Words", data=words)
+    # delete all data before 'time' and after(including) rest meters 
+    for i in range(len(words)):
+        if words[i] == 'time':
+            time_idx = i
+        # could use more robus regex expression here
+        elif words[i][0] == 'r': 
+            rest_meters_index = i
+    relevant_data = words[time_idx:rest_meters_index]
+    # delete all data before summary row time data
+    for i in range(len(relevant_data)):
+        try:
+            int(relevant_data[i])
+            summary_time_idx = i - 1
+            relevant_data = relevant_data[summary_time_idx:]
+            break 
+        except:
+            continue 
+    # insert placeholder hr 
+    relevant_data.insert(4, 'hrholder')
+    log.debug('Relevant raw data', data=relevant_data)
+
+    # create lists of 
+    time = relevant_data[0::5]
+    meter = relevant_data[1::5]
+    split = relevant_data[2::5]
+    sr = relevant_data[3::5]
+    hr = relevant_data[4::5]
+    # fix HR stand in
+    del hr[0]
+    hr_av = int(sum(int(h) for h in hr)/len(hr))
+    hr.insert(0, hr_av) 
+
+    return WorkoutDataReturn(time=time, meter=meter, split=split, sr=sr, hr=hr)
+
+   
+
 
 # def process_variable_intervals(cell_blocks:List[dict], time_row_index:int):
 #     # keep first three rows then every other row becomes rest...I think

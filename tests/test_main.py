@@ -78,14 +78,16 @@ def test_write_team_succeeds(client, headers):
 
 def test_read_team_succeeds(client, headers):
     resp = client.get("/team", headers=headers)
-    assert "team_member" in resp.json()
+    assert 'user_team_info' in resp.json()
+    assert "team_member" in resp.json()['user_team_info']
 
 
 def test_update_team_succeeds(client, headers):
     resp = client.get("/team", headers=headers)
-    team_id = resp.json()["team_info"]["team_id"]
+    team_id = resp.json()['user_team_info']["team_info"]["team_id"]
     post_team_data = PostTeamDataSchema(teamName="fake-team3", teamCode="fake-code").dict()
     resp = client.put(f"/team/{team_id}", headers=headers, json=post_team_data)
+    assert resp.status_code == 200 
 
 
 def test_write_join_team_succeeds(client, headers):

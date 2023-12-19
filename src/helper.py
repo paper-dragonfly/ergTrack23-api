@@ -148,6 +148,22 @@ def convert_class_instances_to_dicts(sqlAlchemy_insts: list) -> List[dict]:
         converted_list.append(inst_as_dict)
     return converted_list
 
+def process_dtm_workouts(db_resp: List[tuple]) -> List[dict]:
+    """
+    Reformat response retrieved by sqlAlchemy from a list of tuples to list of dicts editing date to json compatible format
+    """
+    dtm_workouts = [] 
+    for wo in db_resp:
+        jsondate = wo[0].isoformat()
+        time = duration_to_seconds(wo[1]) 
+        wo_dict = {
+            'date': wo[0].isoformat(),
+            'time': time,
+            'meter': wo[2] 
+        }
+        dtm_workouts.append(wo_dict)
+    return dtm_workouts 
+
 
 def duration_to_seconds(duration: str) -> float:
     time_components = duration.split(":")
@@ -208,3 +224,5 @@ def add_user_info_to_workout(workouts: List[dict], members: List[dict]) -> List[
         workouts[i]["sex"] = members_by_id[uid]["sex"]
         workouts[i]["dob"] = members_by_id[uid]["dob"]
     return workouts
+
+
