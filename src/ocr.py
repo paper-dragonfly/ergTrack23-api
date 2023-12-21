@@ -148,7 +148,7 @@ def add_empty_cell_if_needed(table_data, block) -> Union[dict, bool]:
     return False
 
 
-def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellData]:
+def extract_table_data(image_raw_response: dict, word_index: dict) -> Union[List[CellData], bool]:
     try:
         # create list of cell  blocks
         cell_blocks: List[dict] = [
@@ -156,6 +156,11 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> List[CellD
             for block in image_raw_response["Blocks"]
             if block["BlockType"] == "CELL"
         ]
+
+        # No table detected in photo
+        if not cell_blocks:
+            return False
+
         cell_blocks, time_row_index = remove_blocks_before_time(word_index, cell_blocks)
         log.debug(f"cell blocks len: {len(cell_blocks)}")
 
@@ -426,34 +431,43 @@ def clean_metadata(
 
 
 def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDataReturn:
-    # pdb.set_trace()
+    """
+    Receives raw OCR, photo_hash & whether workout is a variable interval workout
+    Attempt to process raw OCR data into desired format 
+    Return processed data
+    """
     word_index = create_word_index(raw_response)
     table_data = extract_table_data(raw_response, word_index)
     log.debug("Table data: ", data=table_data)
-    table_data_clean = clean_table_data(table_data)
-    log.debug("table_data_clean: ", data=table_data_clean)
-    #current 
-    # Process variable interval workouts when rest info is merged with row above
     rest_info = {'time': [], 'meter': []}
-    if ints_var: 
-        rest_info, merged_rows = get_rest_info_fm_merged_rows(table_data_clean)
-    workout_data = compile_workout_data(table_data_clean, ints_var)
-    # Process variable interval workouts when rest info has its own row 
-    if ints_var and not merged_rows:
-        log.debug("workout_data pre-varInst adjusted: ", data=workout_data)
-        workout_data, rest_info = process_variable_intervals_distinct_rows(workout_data)
-    
-    #Fix common issues with HR data - fm interval workouts where average HR isn't calculated bt C2Erg
-    # Remove empty entries in HR list - assumes time has correct number of entries
-    if len(workout_data.hr) > len(workout_data.time):
-        workout_data.hr = [h for h in workout_data.hr if h]
-    # find and add average 
-    if len(workout_data.hr) == len(workout_data.time) - 1: 
-        av_hr = int(sum(int(h) for h in workout_data.hr)/len(workout_data.hr))
-        workout_data.hr.insert(0,av_hr) 
-    # only summary row processed
-    if len(workout_data.time) == 1: 
-        workout_data = non_table_processing(word_index)
+    # No table detected in photo or only summary data extracted 
+    use_shortcut_for_all = False 
+    if not table_data or (table_data[0]['text']==['time'] and table_data[-1]['row']==2) or use_shortcut_for_all:
+        relevant_data = non_table_processing(word_index)
+        log.debug("Relevant Data", data=relevant_data)
+        workout_data = compile_workoutdata_from_non_table_data(relevant_data)
+
+    else: 
+        table_data_clean = clean_table_data(table_data)
+        log.debug("table_data_clean: ", data=table_data_clean)
+        #current 
+        # Process variable interval workouts when rest info is merged with row above
+        if ints_var: 
+            rest_info, merged_rows = get_rest_info_fm_merged_rows(table_data_clean)
+        workout_data = compile_workout_data(table_data_clean, ints_var)
+        # Process variable interval workouts when rest info has its own row 
+        if ints_var and not merged_rows:
+            log.debug("workout_data pre-varInst adjusted: ", data=workout_data)
+            workout_data, rest_info = process_variable_intervals_distinct_rows(workout_data)
+        
+        #Fix common issues with HR data - fm interval workouts where average HR isn't calculated bt C2Erg
+        # Remove empty entries in HR list - assumes time has correct number of entries
+        if len(workout_data.hr) > len(workout_data.time):
+            workout_data.hr = [h for h in workout_data.hr if h]
+        # find and add average 
+        if len(workout_data.hr) == len(workout_data.time) - 1: 
+            av_hr = int(sum(int(h) for h in workout_data.hr)/len(workout_data.hr))
+            workout_data.hr.insert(0,av_hr) 
 
     log.debug("workout_data: ", data=workout_data)
 
@@ -525,54 +539,73 @@ def clean_wordlist_for_non_table_extraction(word_index):
 
 def non_table_processing(word_index:dict):
     """
-    This exists for the case where of interval workouts that have no average HR 
-    and where my other OCR only extracted the summary row of data. Oddly specific 
-    but a common kind of workout, especially for me. 
+    This exists for when:
+     1. no table is detected by textractof 
+     2. only summary row is extracted (common in interval workouts that have no average HR)
     This function is a hack in a lot of ways and makes a lot of assumptions. 
     Certainly it can be improved but I'm hoping it'll be good enough for most cases
     """
     words = clean_wordlist_for_non_table_extraction(word_index)
     log.debug("OCR Words", data=words)
     # delete all data before 'time' and after(including) rest meters 
+    #itterate through list backwards to find last integer element (should be HR or SR)
+    for i in range(len(words) - 1, -1, -1):
+        if words[i].isdigit():
+            end_index = i + 1
+            break 
     for i in range(len(words)):
         if words[i] == 'time':
-            time_idx = i
+            time_idx = i 
         # could use more robus regex expression here
-        elif words[i][0] == 'r': 
-            rest_meters_index = i
-    relevant_data = words[time_idx:rest_meters_index]
-    # delete all data before summary row time data
+        elif words[i][0] == 'r': #this is the r in rest meters found on the last row of interval workouts
+            r_index = i
+            # bug fix for interval WO where OCR mistakenly interprests something after rest_meters as number
+            if r_index < end_index:
+                end_index = r_index
+        
+    relevant_data = words[time_idx:end_index]
+    # delete all data before summary row time data 
     for i in range(len(relevant_data)):
-        try:
-            int(relevant_data[i])
-            summary_time_idx = i - 1
-            relevant_data = relevant_data[summary_time_idx:]
+        if relevant_data[i+1].isdigit(): #i+1 => index of summary_meters, i => index summary_time
+            relevant_data = relevant_data[i:]
             break 
-        except:
-            continue 
-    # insert placeholder hr 
-    relevant_data.insert(4, 'hrholder')
-    log.debug('Relevant raw data', data=relevant_data)
+    return relevant_data
 
-    # create lists of 
-    time = relevant_data[0::5]
-    meter = relevant_data[1::5]
-    split = relevant_data[2::5]
-    sr = relevant_data[3::5]
-    hr = relevant_data[4::5]
-    # fix HR stand in
-    del hr[0]
-    hr_av = int(sum(int(h) for h in hr)/len(hr))
-    hr.insert(0, hr_av) 
-
+def compile_workoutdata_from_non_table_data(raw_workout_data) -> bool:
+    #does data include HR? i.e. is the last number SR?  
+        # Assumption recorded HRs will be between 60 - 300 BPM 
+        # Why 60: high enough it can't be SR, low enough anyone working out will have a higher HR 
+        # Why 300: higher than anyones max HR, low enough to exclude if HR and SR merg 
+        # althernative method: check is int(rwd[-2]) causes error (i.e. no HR, hitting split)  
+    hr_present = True if 60 < int(raw_workout_data[-1]) < 300 else False 
+    if hr_present: 
+        #check if average HR present, if not add placeholder
+        if raw_workout_data[4].isdigit() and 60 < int(raw_workout_data[4]) < 300:
+            av_hr_present = True
+        else: 
+            av_hr_present = False
+            raw_workout_data.insert(4, 'hrholder')
+        # create lists of column data
+        time = raw_workout_data[0::5]
+        meter = raw_workout_data[1::5]
+        split = raw_workout_data[2::5]
+        sr = raw_workout_data[3::5]
+        hr = raw_workout_data[4::5]
+        if not av_hr_present: 
+            # fix HR stand in
+            del hr[0]
+            hr_av = int(sum(int(h) for h in hr)/len(hr))
+            hr.insert(0, hr_av) 
+    else: 
+        # create lists of column data
+        time = raw_workout_data[0::4]
+        meter = raw_workout_data[1::4]
+        split = raw_workout_data[2::4]
+        sr = raw_workout_data[3::4]
+        hr = ["" for _ in time]
+            
     return WorkoutDataReturn(time=time, meter=meter, split=split, sr=sr, hr=hr)
 
-   
 
 
-# def process_variable_intervals(cell_blocks:List[dict], time_row_index:int):
-#     # keep first three rows then every other row becomes rest...I think
-#     first_rest_row = time_row_index + 3 
-#     cell_blocks_restless = cell_blocks[:first_rest_row] + cell_blocks[first_rest_row::2]
-#     pass
 
