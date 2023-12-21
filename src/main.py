@@ -296,8 +296,9 @@ def create_extract_and_process_ergImage(
 ):
     """
     Receives UploadFile containing photo of erg screen,
-    sends image to Textract for OCR, processes raw result, save img gcs bucket
-    Returns processed data
+    sends image to Textract for OCR, attempt to process raw result
+    if processing Fails: save image in unprocessable_erg_screens gcs bucket and return error else...
+    Returns save img in gcs bucket and return processed data
     """
     log.info("Started", endpoint="ergImage", method="post")
     try:
