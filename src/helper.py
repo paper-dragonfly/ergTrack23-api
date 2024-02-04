@@ -66,6 +66,7 @@ def create_photo_hash(image_bytes, auth_uid, session)-> str:
     # convert bytes to byte array & create photo_hash
     byte_array = bytearray(image_bytes)
     photo_hash = user_name+'_'+sha256(byte_array).hexdigest()
+    log.debug("Photo hash", data=photo_hash)
     return photo_hash
 
 def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:

@@ -50,6 +50,21 @@ def test_create_extract_and_process_ergImage_succeeds(client, headers):
             resp = client.post("/ergImage", headers=headers, files=files)
     assert "photo_hash" in resp.json()
 
+def test_create_extract_and_process_ergImage_var_intervals_succeeds(client, headers):
+    with open("./tests/erg-var-ints.jpg", "rb") as f:
+        files = {"photo1": ("erg-screen.jpeg", f, "image/jpeg")}
+        with patch("src.main.upload_blob"):
+            resp = client.post("/ergImage", headers=headers, files=files)
+    assert "rest_info" in resp.json()
+
+def test_create_extract_and_process_ergImage_fails(client, headers): 
+    with open("./tests/not-an-erg.jpeg", "rb") as f:
+        files = {"photo1": ("erg-screen.jpeg", f, "image/jpeg")}
+        with patch("src.main.upload_blob"):
+            resp = client.post("/ergImage", headers=headers, files=files)
+    assert resp.status_code == 400 
+    assert "No words detected in image" in resp.json()['error_message']
+
 
 def test_create_workout_succeeds(client, headers):
     # TODO gotta generate data for the workout

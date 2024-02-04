@@ -320,8 +320,8 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> Union[List
         raise CustomError(status_code=500, message=f"extract_table_data failed, {e}")
 
 
-# clean workout data - replace column labels & change "," for "."
 def clean_table_data(table_data: List[dict]):
+    """clean workout data - replace column labels & change "," for "."""
     try:
         # remove all cells before 'time'
         while "time" not in table_data[0]["text"]:
@@ -437,6 +437,8 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
     Return processed data
     """
     word_index = create_word_index(raw_response)
+    if not word_index:
+        raise CustomError(status_code=400, message=f'No words detected in image')
     table_data = extract_table_data(raw_response, word_index)
     log.debug("Table data: ", data=table_data)
     rest_info = {'time': [], 'meter': []}
@@ -545,31 +547,34 @@ def non_table_processing(word_index:dict):
     This function is a hack in a lot of ways and makes a lot of assumptions. 
     Certainly it can be improved but I'm hoping it'll be good enough for most cases
     """
-    words = clean_wordlist_for_non_table_extraction(word_index)
-    log.debug("OCR Words", data=words)
-    # delete all data before 'time' and after(including) rest meters 
-    #itterate through list backwards to find last integer element (should be HR or SR)
-    for i in range(len(words) - 1, -1, -1):
-        if words[i].isdigit():
-            end_index = i + 1
-            break 
-    for i in range(len(words)):
-        if words[i] == 'time':
-            time_idx = i 
-        # could use more robus regex expression here
-        elif words[i][0] == 'r': #this is the r in rest meters found on the last row of interval workouts
-            r_index = i
-            # bug fix for interval WO where OCR mistakenly interprests something after rest_meters as number
-            if r_index < end_index:
-                end_index = r_index
-        
-    relevant_data = words[time_idx:end_index]
-    # delete all data before summary row time data 
-    for i in range(len(relevant_data)):
-        if relevant_data[i+1].isdigit(): #i+1 => index of summary_meters, i => index summary_time
-            relevant_data = relevant_data[i:]
-            break 
-    return relevant_data
+    try: 
+        words = clean_wordlist_for_non_table_extraction(word_index)
+        log.debug("OCR Words", data=words)
+        # delete all data before 'time' and after(including) rest meters 
+        #itterate through list backwards to find last integer element (should be HR or SR)
+        for i in range(len(words) - 1, -1, -1):
+            if words[i].isdigit():
+                end_index = i + 1
+                break 
+        for i in range(len(words)):
+            if words[i] == 'time':
+                time_idx = i 
+            # could use more robus regex expression here
+            elif words[i][0] == 'r': #this is the r in rest meters found on the last row of interval workouts
+                r_index = i
+                # bug fix for interval WO where OCR mistakenly interprests something after rest_meters as number
+                if r_index < end_index:
+                    end_index = r_index
+            
+        relevant_data = words[time_idx:end_index]
+        # delete all data before summary row time data 
+        for i in range(len(relevant_data)):
+            if relevant_data[i+1].isdigit(): #i+1 => index of summary_meters, i => index summary_time
+                relevant_data = relevant_data[i:]
+                break 
+        return relevant_data
+    except Exception as e:
+        raise CustomError(status_code=400, message=f'Image cannot be processed, {e}')
 
 def compile_workoutdata_from_non_table_data(raw_workout_data) -> bool:
     #does data include HR? i.e. is the last number SR?  
