@@ -205,7 +205,8 @@ async def read_user(authorization: str = Header(...)):
         auth_uid = validate_user_token(authorization)
         with Session() as session:
             user_id = get_user_id(auth_uid, session)
-            user = session.query(AthleteTable).get(user_id)
+            # user = session.query(AthleteTable).get(user_id)
+            user = session.get(AthleteTable, user_id)
             user_info = {
                 column.name: getattr(user, column.name)
                 for column in AthleteTable.__table__.columns
@@ -302,44 +303,54 @@ def create_extract_and_process_ergImage(
     """
     log.info("Started", endpoint="ergImage", method="post")
     try:
+        # Validate user token to ensure request is authenticated
         auth_uid = validate_user_token(authorization)
+        # Update the athlete's last post date to today
         with Session() as session:
             athlete = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
             athlete.last_post = date.today().strftime('%Y-%m-%d')
             session.commit() 
+        # Initialize variable and process each uploaded photo
         with Session() as session: 
             tinit = datetime.now()
             user_id = get_user_id(auth_uid, session)
             unmerged_ocr_data = []
             ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
+            # Process each image
             for img in ergImgs:
                 filename = img.filename
                 image_bytes = img.file.read()
+                # create a unique id for the photo: user_name + sha256 hash
                 photo_hash = create_photo_hash(image_bytes, auth_uid, session)
                 # 1. Send photo to Textract (or get raw_blob from library) 
-                # 2. Process raw data to get processed workout and metadata 
+                # 2. Process raw data to get workout information and metadata 
                 ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash, varInts)
+                unmerged_ocr_data.append(ocr_data)
+                # Asyncrenously upload image to google cloud bucket
                 upload_blob_thread = threading.Thread(
                     target=upload_blob,
                     args=("erg_memory_screen_photos", image_bytes, photo_hash),
                     name=f"UploadBlobThread_{filename}",
                 )
                 upload_blob_thread.start()
-                unmerged_ocr_data.append(ocr_data)
+            # If only one photo was submitted, return processed OCR data
             if len(unmerged_ocr_data) == 1: #only one photo
                 tf = datetime.now()
                 dtot = tf - tinit
                 log.info("TOTAL TIME", total_dur=dtot)
                 json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
                 return JSONResponse(content=json_compatable_ocr_data)
+            # If more than one photo was subitted, combine processed OCR data to reflect full workout 
             final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs, varInts)
             dtot = datetime.now() - tinit
             log.info("TOTAL TIME", total_dur=dtot)
             json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
             return JSONResponse(content=json_compatable_ocr_data)
+    # Handle invalid token errors
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
-        return JSONResponse(status_code=404, content={"error_message":str(e)})
+        return JSONResponse(status_code=401, content={"error_message":str(e)})
+    # Handle other exceptions
     except Exception as e:
         # save image to unprocessable_erg_screens bucket
         upload_blob_thread = threading.Thread(
@@ -350,7 +361,6 @@ def create_extract_and_process_ergImage(
         upload_blob_thread.start()
 
         log.error(f"/ergImage exception, uid={user_id}", error_message=str(e))
-        # pdb.set_trace() 
         raise e
 
 
