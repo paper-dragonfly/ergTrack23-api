@@ -6,9 +6,9 @@ from datetime import date
 
 # Incoming post/put schema
 class PostErgImageSchema(BaseModel):
-    photo1: UploadFile = File(...) 
-    photo2: Optional[UploadFile]  
-    photo3: Optional[UploadFile] 
+    image1: UploadFile = File(...) 
+    image2: Optional[UploadFile]  
+    image3: Optional[UploadFile] 
     
 
 
@@ -85,7 +85,7 @@ class RestInfoSchema(BaseModel):
 class OcrDataReturn(BaseModel):
     workout_meta: CleanMetaReturn
     workout_data: WorkoutDataReturn
-    photo_hash: List[str]
+    image_hash: List[str]
     rest_info : RestInfoSchema
     
 

@@ -18,7 +18,7 @@ log = structlog.get_logger()
 
 
 def get_processed_ocr_data(
-    image_bytes: bytes, photo_hash:str, ints_var:bool
+    image_bytes: bytes, image_hash:str, ints_var:bool
 ) -> OcrDataReturn:
     """
     Receives: erg image filename & bytes
@@ -33,9 +33,9 @@ def get_processed_ocr_data(
     # var below used for testing ocr - change to True for Prod
     search_library = True
     # If yes -> grab raw response
-    if search_library and photo_hash in library_entries:
-        # get raw data using photo_hash
-        raw_textract_resp = raw_ocr_library[photo_hash]
+    if search_library and image_hash in library_entries:
+        # get raw data using image_hash
+        raw_textract_resp = raw_ocr_library[image_hash]
         t2 = datetime.now()
         log.info("Raw OCR from library")
     # If no -> create byte array, display img, send to textract
@@ -50,24 +50,24 @@ def get_processed_ocr_data(
         log.info("Time for Textract to complete OCR", duration=d1)
         # save raw_resp to raw_ocr library
         with open("src/rawocr.json", "w") as f:
-            raw_ocr_library[photo_hash] = raw_textract_resp
+            raw_ocr_library[image_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
 
-    processed_data = process_raw_ocr(raw_textract_resp, photo_hash, ints_var)
+    processed_data = process_raw_ocr(raw_textract_resp, image_hash, ints_var)
     t3 = datetime.now()
     d2 = t3 - t2
     log.info("Time to process raw data", process_dur=d2)
     return processed_data
 
-def create_photo_hash(image_bytes, auth_uid, session)-> str:
+def create_image_hash(image_bytes, auth_uid, session)-> str:
     #get user name
     user = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
     user_name = user.email.split('@')[0]
-    # convert bytes to byte array & create photo_hash
+    # convert bytes to byte array & create image_hash
     byte_array = bytearray(image_bytes)
-    photo_hash = user_name+'_'+sha256(byte_array).hexdigest()
-    log.debug("Photo hash", data=photo_hash)
-    return photo_hash
+    image_hash = user_name+'_'+sha256(byte_array).hexdigest()
+    log.debug("Photo hash", data=image_hash)
+    return image_hash
 
 def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     """Uploads erg_image to google cloud bucket if not already stored"""
@@ -76,27 +76,29 @@ def upload_blob(bucket_name: str, image_bytes: bytes, image_hash: str) -> None:
     blob = bucket.blob(image_hash)
     if blob.exists():
         log.info("Duplicate: blob already exists in bucket")
+        return None
     else:
         blob.upload_from_string(image_bytes, "image/jpeg")
         log.info(f"{image_hash} uploaded to {bucket_name}.")
+        return None 
 
 
 def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bool) -> OcrDataReturn:
     
     # Assumptions
-    # 1. each photo contains max possible  # undocumented Sub-WOs
-    #grab info for first photo - will update/add to this
+    # 1. each image contains max possible  # undocumented Sub-WOs
+    #grab info for first image - will update/add to this
     merged_data: OcrDataReturn = unmerged_data[0]
-    # Combine photo_hash from all unmerged_data
-    photo_hash = [data.photo_hash[0] for data in unmerged_data]
-    merged_data.photo_hash = photo_hash
+    # Combine image_hash from all unmerged_data
+    image_hash = [data.image_hash[0] for data in unmerged_data]
+    merged_data.image_hash = image_hash
 
     # Merge WorkoutDataReturn objects
     wo_data: WorkoutDataReturn = merged_data.workout_data
 
-    # add all sub-workouts (and rest info) from middle photos 
+    # add all sub-workouts (and rest info) from middle images 
     # Iterate over all elements in unmerged_data except first and last
-    # basically add  data from photo2 in  case with 3 photos
+    # basically add  data from image2 in  case with 3 images
     for data in unmerged_data[1:-1]:
         wo_data.time.extend(data.workout_data.time[1:])
         wo_data.meter.extend(data.workout_data.meter[1:])
@@ -106,7 +108,7 @@ def merge_ocr_data(unmerged_data: List[OcrDataReturn], numSubs: int, varInts: bo
         merged_data.rest_info.time.extend(data.rest_info.time[1:])
         merged_data.rest_info.meter.extend(data.rest_info.meter[1:])
 
-    # add remaining sub-workouts from last photo
+    # add remaining sub-workouts from last image
     last_subs_idx = (-1 * (numSubs % 8)) if not varInts else (-1*(numSubs % 4))
     wo_data.time.extend(unmerged_data[-1].workout_data.time[last_subs_idx:])
     wo_data.meter.extend(unmerged_data[-1].workout_data.meter[last_subs_idx:])

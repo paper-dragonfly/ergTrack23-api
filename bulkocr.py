@@ -13,7 +13,7 @@ files = os.listdir(folder_path)
 # List all jpegs in folder
 jpeg_images = [file for file in files if file.lower().endswith('.jpeg') or file.lower().endswith('.jpg')]
 
-def textract_ocr(byte_array, photo_hash):
+def textract_ocr(byte_array, image_hash):
     # Check if image is already in raw_ocr library
     with open("src/rawocr.json", "r") as f:
         raw_ocr_library = json.load(f)
@@ -21,18 +21,18 @@ def textract_ocr(byte_array, photo_hash):
     # var below used for testing ocr - change to True for Prod
     search_library = True
     # If yes -> grab raw response
-    if search_library and photo_hash in library_entries:
-        # get raw data using photo_hash
-        raw_textract_resp = raw_ocr_library[photo_hash]
+    if search_library and image_hash in library_entries:
+        # get raw data using image_hash
+        raw_textract_resp = raw_ocr_library[image_hash]
         return False
     # If no -> send to textract
     else:
         raw_textract_resp = hit_textract_api(byte_array)
         # save raw_resp to raw_ocr library
         with open("src/rawocr.json", "w") as f:
-            raw_ocr_library[photo_hash] = raw_textract_resp
+            raw_ocr_library[image_hash] = raw_textract_resp
             json.dump(raw_ocr_library, f)
-    print('ocr complete: ', photo_hash)
+    print('ocr complete: ', image_hash)
     return True
     
   
@@ -53,12 +53,12 @@ def extract_and_save(image_list, folder_path):
         image_path = os.path.join(folder_path, image_name)
         with open(image_path, 'rb') as image_file:
             image_bytes = image_file.read()
-            # convert bytes to byte array & create photo_hash
+            # convert bytes to byte array & create image_hash
             byte_array = bytearray(image_bytes)
-            photo_hash = sha256(byte_array).hexdigest()
-            new_img = textract_ocr(byte_array, photo_hash)
+            image_hash = sha256(byte_array).hexdigest()
+            new_img = textract_ocr(byte_array, image_hash)
             if new_img:
-                upload_blob_gcb("erg_memory_screen_photos", image_bytes, photo_hash)
+                upload_blob_gcb("erg_memory_screen_photos", image_bytes, image_hash)
         processed_images.append(image_name)
     print(processed_images)
 

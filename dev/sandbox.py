@@ -45,7 +45,7 @@ def list_library_contents(dir_path=IMAGE_DIR):
     library_content = raw_ocr_library.keys()
     print(library_content)
     print("library contents", len(library_content))
-    print("ergImage", len(os.listdir(dir_path)))
+    print("erg_image", len(os.listdir(dir_path)))
 
 
 def sort_processable():
@@ -288,16 +288,16 @@ if __name__ == "__main__":
     # test_conn_with_session()
     test_ergtrack_db_tables_exist()
 
-# def get_processed_ocr_data(erg_photo):
-#     # convert bytes to byte array & create photo_hash
-#     byte_array = bytearray(erg_photo.file.read())
-#     photo_hash = sha256(byte_array).hexdigest()
+# def get_processed_ocr_data(erg_image):
+#     # convert bytes to byte array & create image_hash
+#     byte_array = bytearray(erg_image.file.read())
+#     image_hash = sha256(byte_array).hexdigest()
 #     # Check if image is already in raw_ocr library
 #     with open("src/rawocr.json", "r") as f:
 #         raw_ocr_library = json.load(f)
-#     if erg_photo.filename in raw_ocr_library.keys():
+#     if erg_image.filename in raw_ocr_library.keys():
 #         # If yes -> grab raw response
-#         raw_textract_resp = raw_ocr_library[erg_photo.filename]
+#         raw_textract_resp = raw_ocr_library[erg_image.filename]
 #     # If no -> create byte array, display img, send to textract
 #     else:
 #         # open image + send to AWS Textract for OCR extraction
@@ -307,10 +307,10 @@ if __name__ == "__main__":
 #         # TODO create sha256 hash for img and save image to cloud storage
 #         # save raw_resp to raw_ocr library + TODO image hash
 #         with open("src/rawocr.json", "w") as f:
-#             raw_ocr_library[erg_photo.filename] = raw_textract_resp
+#             raw_ocr_library[erg_image.filename] = raw_textract_resp
 #             json.dump(raw_ocr_library, f)
 #     # TODO return image_hash too
-#     return process_raw_ocr(raw_textract_resp, photo_hash)
+#     return process_raw_ocr(raw_textract_resp, image_hash)
 
 
 # ERG_IMAGE_DIRECTORY = "ergImages"
@@ -466,7 +466,7 @@ if __name__ == "__main__":
 #     },
 # ]
 
-## 11/22/23 /ergtrack23api/src/main.py(327)create_extract_and_process_ergImage() pdb.set_trace() unmerged_ocr_data
+## 11/22/23 /ergtrack23api/src/main.py(327)create_extract_and_process_erg_image() pdb.set_trace() unmerged_ocr_data
 [OcrDataReturn(
     workout_meta=CleanMetaReturn(wo_name='5x20:00:2:30r', total_type='Total Time:', wo_date='Nov 15 2023', total_val='1:52:30.0'), 
     workout_data=WorkoutDataReturn(
@@ -475,7 +475,7 @@ if __name__ == "__main__":
         split=['2:26.8', '2:28.1', '2:25.3', '2:26.2', '2:25.1', '2:29.4'], 
         sr=['16', '16', '17', '17', '17', '17'], 
         hr=['', '', '131', '', '135', '', '131', '', '', '132', '', '137']), 
-    photo_hash=['simba_732ab5d01cca2e57e5f9ef49f5cc7e2dc0eaf595f7d408e5cba7aeb698ee5156'], 
+    image_hash=['simba_732ab5d01cca2e57e5f9ef49f5cc7e2dc0eaf595f7d408e5cba7aeb698ee5156'], 
     rest_info=RestInfoSchema(time=[], meter=[]))]
 
 noavhr4
@@ -487,6 +487,6 @@ noavhr4
         split=['2:14.0', '2:13.7', '2:13.3', '2:15.0'], 
         sr=['19', '19', '20', '20'], 
         hr=['157', '147', '146']), 
-    photo_hash=['simba_8bc369ec4ef073909f04566151e6441b7746edff689b6f0c3423ab4c73fd91e3'], 
+    image_hash=['simba_8bc369ec4ef073909f04566151e6441b7746edff689b6f0c3423ab4c73fd91e3'], 
     rest_info=RestInfoSchema(time=[], meter=[]))]
 

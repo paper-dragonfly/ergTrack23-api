@@ -3,6 +3,8 @@
 ## Description
 ergTrack is a web app for rowing athletes that harnesses computer vision to facilitate simple and quick tracking of indoor rowing workouts. 
 
+Watch the [Demo Video](https://www.canva.com/design/DAFq-5T_Wns/TNjxCZ-VCIgUY8LpwlFUjg/watch?utm_content=DAFq-5T_Wns&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink)
+
 ## Setup for local development
 1. Clone repo from GitHub 
     * clone API and front end `git@github.com:paper-dragonfly/ergTrack23-front.git` 
@@ -72,3 +74,7 @@ You need to rebuild your image with this env var
 ```docker exec -it <container-id> /bin/bash```
 3. Run tests in debugger and logging mode.
 ```pytest -s```
+
+
+### Sequence Diagram
+![Save Workout](sequence_diagram.png)

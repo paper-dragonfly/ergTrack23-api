@@ -43,25 +43,25 @@ def test_patch_user_succeeds(client, headers):
     assert resp.status_code == 200
 
 
-def test_create_extract_and_process_ergImage_succeeds(client, headers):
+def test_create_extract_and_process_erg_image_succeeds(client, headers):
     with open("./tests/erg-screen.jpeg", "rb") as f:
-        files = {"photo1": ("erg-screen.jpeg", f, "image/jpeg")}
+        files = {"image1": ("erg-screen.jpeg", f, "image/jpeg")}
         with patch("src.main.upload_blob"):
-            resp = client.post("/ergImage", headers=headers, files=files)
-    assert "photo_hash" in resp.json()
+            resp = client.post("/erg_image", headers=headers, files=files)
+    assert "image_hash" in resp.json()
 
-def test_create_extract_and_process_ergImage_var_intervals_succeeds(client, headers):
+def test_create_extract_and_process_erg_image_var_intervals_succeeds(client, headers):
     with open("./tests/erg-var-ints.jpg", "rb") as f:
-        files = {"photo1": ("erg-screen.jpeg", f, "image/jpeg")}
+        files = {"image1": ("erg-screen.jpeg", f, "image/jpeg")}
         with patch("src.main.upload_blob"):
-            resp = client.post("/ergImage", headers=headers, files=files)
+            resp = client.post("/erg_image", headers=headers, files=files)
     assert "rest_info" in resp.json()
 
-def test_create_extract_and_process_ergImage_fails(client, headers): 
+def test_create_extract_and_process_erg_image_fails(client, headers): 
     with open("./tests/not-an-erg.jpeg", "rb") as f:
-        files = {"photo1": ("erg-screen.jpeg", f, "image/jpeg")}
+        files = {"image1": ("erg-screen.jpeg", f, "image/jpeg")}
         with patch("src.main.upload_blob"):
-            resp = client.post("/ergImage", headers=headers, files=files)
+            resp = client.post("/erg_image", headers=headers, files=files)
     assert resp.status_code == 400 
     assert "No words detected in image" in resp.json()['error_message']
 

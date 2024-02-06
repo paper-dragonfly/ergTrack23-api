@@ -157,7 +157,7 @@ def extract_table_data(image_raw_response: dict, word_index: dict) -> Union[List
             if block["BlockType"] == "CELL"
         ]
 
-        # No table detected in photo
+        # No table detected in image
         if not cell_blocks:
             return False
 
@@ -430,9 +430,9 @@ def clean_metadata(
     return meta_dict
 
 
-def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDataReturn:
+def process_raw_ocr(raw_response: dict, image_hash: str, ints_var:bool) -> OcrDataReturn:
     """
-    Receives raw OCR, photo_hash & whether workout is a variable interval workout
+    Receives raw OCR, image_hash & whether workout is a variable interval workout
     Attempt to process raw OCR data into desired format 
     Return processed data
     """
@@ -442,7 +442,7 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
     table_data = extract_table_data(raw_response, word_index)
     log.debug("Table data: ", data=table_data)
     rest_info = {'time': [], 'meter': []}
-    # No table detected in photo or only summary data extracted 
+    # No table detected in image or only summary data extracted 
     use_shortcut_for_all = False 
     if not table_data or (table_data[0]['text']==['time'] and table_data[-1]['row']==2) or use_shortcut_for_all:
         relevant_data = non_table_processing(word_index)
@@ -487,7 +487,7 @@ def process_raw_ocr(raw_response: dict, photo_hash: str, ints_var:bool) -> OcrDa
         pass
 
     processed_data = OcrDataReturn(
-        workout_meta=clean_meta, workout_data=workout_data, photo_hash=[photo_hash], rest_info=rest_info
+        workout_meta=clean_meta, workout_data=workout_data, image_hash=[image_hash], rest_info=rest_info
     )
     return processed_data
 

@@ -53,7 +53,7 @@ from src.helper import (
     add_user_info_to_workout,
     merge_ocr_data,
     datetime_encoder,
-    create_photo_hash,
+    create_image_hash,
     process_dtm_workouts,
 )
 
@@ -82,6 +82,7 @@ with open("config/config.yaml", "r") as f:
 DEV_ENV = os.getenv("DEV_ENV")
 CONN_STR = config_data["db_conn_str"][DEV_ENV]
 SECRET_STRING = config_data["SECRET_STRING"]
+IMAGE_BUCKET = config_data["cloud_bucket"]
 os.environ["AWS_ACCESS_KEY_ID"] = config_data["AWS_ACCESS_KEY_ID"]
 os.environ["AWS_SECRET_ACCESS_KEY"] = config_data["AWS_SECRET_ACCESS_KEY"]
 
@@ -126,7 +127,7 @@ async def root():
 
 
 @app.post("/login/")
-async def read_login(request: LoginRequest, authorization: str = Header(...)):
+async def read_login(request: LoginRequest, authorization: str = Header(...)) -> JSONResponse:
     """
     Receives id_token and email
     Validate user with Firebase, add to ergTrack db if new, generate encrypted token
@@ -194,7 +195,7 @@ async def read_login(request: LoginRequest, authorization: str = Header(...)):
 
 
 @app.get("/user")
-async def read_user(authorization: str = Header(...)):
+async def read_user(authorization: str = Header(...)) -> JSONResponse:
     """
     Recieves user_id
     Returns all data from AthleteTable for that user
@@ -222,7 +223,7 @@ async def read_user(authorization: str = Header(...)):
 
 
 @app.put("/user")
-async def update_user(new_user_info: PutUserSchema, authorization: str = Header(...)):
+async def update_user(new_user_info: PutUserSchema, authorization: str = Header(...)) -> JSONResponse:
     """
     Recieves updated user data
     Updates database
@@ -257,7 +258,7 @@ async def patch_user(
     new_user_info: PatchUserSchema,
     authorization: str = Header(...),
     userId: Union[int, None] = None,
-):
+) -> JSONResponse:
     """
     Recieves updated user data - specifically team related for now
     Updates database
@@ -286,22 +287,22 @@ async def patch_user(
         return JSONResponse(status_code=500, content={"error_message":str(e)})
 
 
-@app.post("/ergImage")
-def create_extract_and_process_ergImage(
-    photo1: UploadFile,
-    photo2: Union[UploadFile, None] = None,
-    photo3: Union[UploadFile, None] = None,
+@app.post("/erg_image")
+def create_extract_and_process_erg_image(
+    image1: UploadFile,
+    image2: Union[UploadFile, None] = None,
+    image3: Union[UploadFile, None] = None,
     varInts: bool = False,
     numSubs: Union[int, None] = None,
     authorization: str = Header(...),
-):
+) -> JSONResponse:
     """
-    Receives UploadFile containing photo of erg screen,
+    Receives UploadFile containing image of erg screen,
     sends image to Textract for OCR, attempt to process raw result
     if processing Fails: save image in unprocessable_erg_screens gcs bucket and return error else...
     Returns save img in gcs bucket and return processed data
     """
-    log.info("Started", endpoint="ergImage", method="post")
+    log.info("Started", endpoint="erg_image", method="post")
     try:
         # Validate user token to ensure request is authenticated
         auth_uid = validate_user_token(authorization)
@@ -310,42 +311,41 @@ def create_extract_and_process_ergImage(
             athlete = session.query(AthleteTable).filter_by(auth_uid=auth_uid).first()
             athlete.last_post = date.today().strftime('%Y-%m-%d')
             session.commit() 
-        # Initialize variable and process each uploaded photo
+        # Initialize variable and process each uploaded image
         with Session() as session: 
-            tinit = datetime.now()
+            start_time = datetime.now()
             user_id = get_user_id(auth_uid, session)
             unmerged_ocr_data = []
-            ergImgs = [photo for photo in (photo1, photo2, photo3) if photo]
+            erg_imgs = [image for image in (image1, image2, image3) if image]
             # Process each image
-            for img in ergImgs:
+            for img in erg_imgs:
                 filename = img.filename
                 image_bytes = img.file.read()
-                # create a unique id for the photo: user_name + sha256 hash
-                photo_hash = create_photo_hash(image_bytes, auth_uid, session)
-                # 1. Send photo to Textract (or get raw_blob from library) 
+                # create a unique id for the image: user_name + sha256 hash
+                image_hash = create_image_hash(image_bytes, auth_uid, session)
+                # 1. Send image to Textract (or get raw_blob from library) 
                 # 2. Process raw data to get workout information and metadata 
-                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, photo_hash, varInts)
+                ocr_data: OcrDataReturn = get_processed_ocr_data(image_bytes, image_hash, varInts)
                 unmerged_ocr_data.append(ocr_data)
-                # Asyncrenously upload image to google cloud bucket
+                # Async upload image to google cloud bucket
                 upload_blob_thread = threading.Thread(
                     target=upload_blob,
-                    args=("erg_memory_screen_photos", image_bytes, photo_hash),
+                    args=(IMAGE_BUCKET, image_bytes, image_hash),
                     name=f"UploadBlobThread_{filename}",
                 )
                 upload_blob_thread.start()
-            # If only one photo was submitted, return processed OCR data
-            if len(unmerged_ocr_data) == 1: #only one photo
-                tf = datetime.now()
-                dtot = tf - tinit
-                log.info("TOTAL TIME", total_dur=dtot)
-                json_compatable_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
-                return JSONResponse(content=json_compatable_ocr_data)
-            # If more than one photo was subitted, combine processed OCR data to reflect full workout 
+            # If only one image was submitted, return processed OCR data
+            if len(unmerged_ocr_data) == 1: #only one image
+                duration = datetime.now() - start_time
+                log.info("TOTAL TIME", total_dur=duration)
+                json_compatible_ocr_data = jsonable_encoder(vars(unmerged_ocr_data[0]))
+                return JSONResponse(content=json_compatible_ocr_data)
+            # If more than one image was submitted, combine processed OCR data to reflect full workout 
             final_ocr_data = merge_ocr_data(unmerged_ocr_data, numSubs, varInts)
-            dtot = datetime.now() - tinit
-            log.info("TOTAL TIME", total_dur=dtot)
-            json_compatable_ocr_data = jsonable_encoder(vars(final_ocr_data))
-            return JSONResponse(content=json_compatable_ocr_data)
+            duration = datetime.now() - start_time
+            log.info("TOTAL TIME", total_dur=duration)
+            json_compatible_ocr_data = jsonable_encoder(vars(final_ocr_data))
+            return JSONResponse(content=json_compatible_ocr_data)
     # Handle invalid token errors
     except InvalidTokenError as e:
         log.error("Invalid Token Error", error_message=str(e))
@@ -355,17 +355,17 @@ def create_extract_and_process_ergImage(
         # save image to unprocessable_erg_screens bucket
         upload_blob_thread = threading.Thread(
             target=upload_blob,
-            args=("unprocessable_erg_screens", image_bytes, photo_hash),
+            args=("unprocessable_erg_screens", image_bytes, image_hash),
             name=f"UploadBlobThread_{filename}",
         )
         upload_blob_thread.start()
 
-        log.error(f"/ergImage exception, uid={user_id}", error_message=str(e))
+        log.error(f"/erg_image exception, uid={user_id}", error_message=str(e))
         raise e
 
 
 @app.get("/workout")
-async def read_workout(authorization: str = Header(...)):
+async def read_workout(authorization: str = Header(...)) -> JSONResponse:
     """Get all workout data for user"""
     log.info("Started", endpoint="workout", method="get")
     try:
@@ -386,7 +386,7 @@ async def read_workout(authorization: str = Header(...)):
 @app.post("/workout")
 async def create_workout(
     workoutData: PostWorkoutSchema, authorization: str = Header(...)
-):
+) -> JSONResponse:
     """
     Receives: workout data and id_token
     Add workout data to ergTrack db
@@ -405,7 +405,7 @@ async def create_workout(
             # create data entry (WorkoutLogTable  instance)
             subworkouts_json = json.dumps(workoutData.tableMetrics[1:])
             var_ints_json = json.dumps(workoutData.varInts) if workoutData.varInts else None 
-            photo_hash_joined = "&nextphotohash&".join(workoutData.photoHash)
+            image_hash_joined = "&nextphotohash&".join(workoutData.photoHash)
             workout_entry = WorkoutLogTable(
                 user_id=user_id,
                 description=workoutData.woMetaData["workoutName"],
@@ -418,7 +418,7 @@ async def create_workout(
                 split_variance=split_var,
                 watts=watts,
                 cal=calories,
-                image_hash=photo_hash_joined,
+                image_hash=image_hash_joined,
                 subworkouts=subworkouts_json,
                 comment=workoutData.woMetaData["comment"],
                 post_to_team=workoutData.woMetaData["postToTeam"],
@@ -438,7 +438,7 @@ async def create_workout(
 
 
 @app.delete("/workout/{workout_id}")
-async def delete_workout(workout_id: int, authorization: str = Header(...)):
+async def delete_workout(workout_id: int, authorization: str = Header(...)) -> JSONResponse:
     """
     Receives workout id
     Deletes entry in workout_log with matching id
@@ -465,7 +465,7 @@ async def delete_workout(workout_id: int, authorization: str = Header(...)):
 
 
 @app.get("/team")
-async def read_team(authorization: str = Header(...)):
+async def read_team(authorization: str = Header(...)) -> JSONResponse:
     """
     Receives userToken
     Uses token to get user_id, queries user table for team_id
@@ -532,7 +532,7 @@ async def read_team(authorization: str = Header(...)):
 
 
 @app.post("/team")
-async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(...)):
+async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(...)) -> JSONResponse:
     """
     Receives userToken, teamName, teamCode
     Adds entry to Team Table (name and code), gets teamID
@@ -588,7 +588,7 @@ async def write_team(teamData: PostTeamDataSchema, authorization: str = Header(.
 @app.put("/team/{team_id}")
 async def update_team(
     team_id: int, teamData: PostTeamDataSchema, authorization: str = Header(...)
-):
+) -> JSONResponse:
     """_summary_
 
     Args:
@@ -626,7 +626,7 @@ async def update_team(
 @app.patch("/jointeam")
 async def write_join_team(
     teamData: PostTeamDataSchema, authorization: str = Header(...)
-):
+) -> JSONResponse:
     """
     Receives userToken + team_name + team_code
     Gets id for team matching name and code
@@ -673,7 +673,7 @@ async def write_join_team(
 
 
 @app.get("/teamlog")
-async def read_teamlog(authorization: str = Header(...)):
+async def read_teamlog(authorization: str = Header(...)) -> JSONResponse:
     """
     Receives userToken
     Gets teamID for user
@@ -723,7 +723,7 @@ async def read_teamlog(authorization: str = Header(...)):
 
 
 @app.get("/teamadmin")
-async def read_team_info(authorization: str = Header(...)):
+async def read_team_info(authorization: str = Header(...)) -> JSONResponse:
     """
     Receives userToken
     Get user from  userToken, get user team, get team info, get member info
@@ -764,7 +764,7 @@ async def read_team_info(authorization: str = Header(...)):
 
 
 @app.patch("/transferadmin/{new_admin_id}")
-async def update_admin(new_admin_id: int, authorization: str = Header(...)):
+async def update_admin(new_admin_id: int, authorization: str = Header(...)) -> JSONResponse:
     """_summary_
 
     Args:
@@ -802,7 +802,7 @@ async def update_admin(new_admin_id: int, authorization: str = Header(...)):
 @app.post("/feedback")
 async def create_feedback(
     feedbackInfo: PostFeedbackSchema, authorization: str = Header(...)
-):
+) -> JSONResponse:
     log.info("Started", endpoint="feedback", method="post")
     try:
         auth_uid = validate_user_token(authorization)
@@ -835,7 +835,7 @@ async def create_feedback(
 @app.post("/sandbox")
 async def create_sandbox(
     name: str = Form(...), age: str = Form(...), image: UploadFile = File(...)
-):
+) -> JSONResponse:
     form_data = {"name": name, "age": age}
     print(form_data)
     byte_array = bytearray(image.file.read())

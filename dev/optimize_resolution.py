@@ -32,7 +32,7 @@ def post_image(image_path, image_size, unprocessable_images = CANNOT_OCR):
     upload_file = UploadFile(filename=image_path, file=image_stream)
 
     # POST the image to the endpoint
-    files = {'photo1': (upload_file.filename, upload_file.file, 'image/jpeg')}
+    files = {'image1': (upload_file.filename, upload_file.file, 'image/jpeg')}
     
     data = {'numSubs': 8,
             'authorization': AUTH_TOKEN }
