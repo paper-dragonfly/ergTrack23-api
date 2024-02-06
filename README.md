@@ -78,3 +78,7 @@ You need to rebuild your image with this env var
 
 ### Sequence Diagram
 ![Save Workout](sequence_diagram.png)
+
+### Erg Memory Screen 
+This is what a indoor rowing machine memory screen looks like 
+![erg screen](tests/erg-screen.jpeg)
